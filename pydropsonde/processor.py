@@ -123,8 +123,9 @@ class Sonde:
         l0_dir = os.path.dirname(self.afile)
         l1_dir = l0_dir.replace("Level_0", "Level_1")
         l2_dir = l0_dir.replace("Level_0", "Level_2")
-        l3_dir = l0_dir.replace("Level_0", "Level_3")
-
+        l3_dir = l0_dir.replace("Level_0", "Level_3").replace(f"/{self.flight_id}", "")
+        print(l3_dir)
+        print(self.flight_id)
         object.__setattr__(self, "l0_dir", l0_dir)
         object.__setattr__(self, "l1_dir", l1_dir)
         object.__setattr__(self, "l2_dir", l2_dir)
@@ -1142,12 +1143,10 @@ class Gridded:
             if l3_filename_template is None:
                 l3_filename = hh.l3_filename_template.format(
                     platform=self.platform_id,
-                    flight_id=self.flight_id,
                 )
             else:
                 l3_filename = l3_filename_template.format(
                     platform=self.platform_id,
-                    flight_id=self.flight_id,
                 )
 
         self.l3_filename = l3_filename
