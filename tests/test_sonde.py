@@ -103,9 +103,10 @@ def test_sonde_add_afile(sonde, temp_afile_launchdetected, temp_afile_nolaunchde
     assert sonde.afile == temp_afile_nolaunchdetected
 
 
-def test_sonde_level_dir(sonde, temp_afile_launchdetected):
+def test_sonde_level_dir(sonde, temp_afile_launchdetected, temp_afile_dir):
     sonde.add_afile(temp_afile_launchdetected)
     sonde.add_level_dir()
+    assert sonde.l0_dir == temp_afile_dir
 
 
 def test_sonde_add_postaspenfile_with_only_afile(
@@ -116,6 +117,7 @@ def test_sonde_add_postaspenfile_with_only_afile(
     """
     sonde = Sonde(serial_id=s_id)
     sonde.add_afile(temp_afile_launchdetected)
+    sonde.add_flight_id(flight_id)
     sonde.add_level_dir()
     sonde.run_aspen()
     assert sonde.postaspenfile == temp_postaspenfile
@@ -142,6 +144,7 @@ def test_sonde_add_aspen_ds_with_mismatched_sonde_id(
     """
     sonde = Sonde(serial_id=s_id[:-1])
     sonde.add_afile(temp_afile_launchdetected)
+    sonde.add_flight_id(flight_id)
     sonde.add_level_dir()
     sonde.run_aspen(temp_postaspenfile)
     with pytest.raises(ValueError):
