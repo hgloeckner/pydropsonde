@@ -3,6 +3,7 @@ import logging
 from pathlib import Path as pp
 from typing import Dict
 import os.path
+import warnings
 
 from pydropsonde.helper import rawreader as rr
 from pydropsonde.processor import Sonde
@@ -44,7 +45,6 @@ class Platform:
         flight_ids = []
 
         dir_with_flights = self.path_structure.format(platform=platform_dir)
-
         for flight_id in os.listdir(dir_with_flights):
             if os.path.isdir(os.path.join(dir_with_flights, flight_id)):
                 flight_ids.append(flight_id)
@@ -142,7 +142,7 @@ class Flight:
             )
         return quicklooks_path_str
 
-    def populate_sonde_instances(self) -> Dict:
+    def populate_sonde_instances(self, config) -> Dict:
         """Returns a dictionary of `Sonde` class instances for all A-files found in `flight_idpath`
         and also sets the dictionary as value of `Sondes` attribute
         """
@@ -151,15 +151,37 @@ class Flight:
         Sondes = {}
 
         for a_file in afiles:
-            launch_detect = rr.check_launch_detect_in_afile(a_file)
+
             sonde_id = rr.get_sonde_id(a_file)
-            launch_time = rr.get_launch_time(a_file)
-            Sondes[sonde_id] = Sonde(sonde_id, launch_time=launch_time)
-            Sondes[sonde_id].add_launch_detect(launch_detect)
-            Sondes[sonde_id].add_flight_id(self.flight_id)
-            Sondes[sonde_id].add_platform_id(self.platform_id)
-            Sondes[sonde_id].add_afile(a_file)
-            Sondes[sonde_id].add_level_dir()
+            try:
+                launch_detect = rr.check_launch_detect_in_afile(a_file)
+                launch_time = rr.get_launch_time(a_file)
+                Sondes[sonde_id] = Sonde(sonde_id, launch_time=launch_time)
+                Sondes[sonde_id].add_launch_detect(launch_detect)
+                Sondes[sonde_id].add_flight_id(
+                    self.flight_id,
+                    config.get(
+                        "processor.Sonde.add_flight_id",
+                        "flight_template",
+                        fallback=None,
+                    ),
+                )
+                Sondes[sonde_id].add_platform_id(self.platform_id)
+                Sondes[sonde_id].add_afile(a_file)
+                Sondes[sonde_id].add_level_dir(
+                    l0_dir=config.get(
+                        "processor.Sonde.add_level_dir", "l0_dir", fallback=None
+                    ),
+                    l1_dir=config.get(
+                        "processor.Sonde.add_level_dir", "l1_dir", fallback=None
+                    ),
+                    l2_dir=config.get(
+                        "processor.Sonde.add_level_dir", "l2_dir", fallback=None
+                    ),
+                )
+            except UnboundLocalError:
+                warnings.warn(f"No valid a-file for sonde {sonde_id}")
+                pass
 
         object.__setattr__(self, "Sondes", Sondes)
 

@@ -54,7 +54,7 @@ class Sonde:
         if self.launch_time is not None:
             object.__setattr__(self, "sort_index", self.launch_time)
 
-    def add_flight_id(self, flight_id: str) -> None:
+    def add_flight_id(self, flight_id: str, flight_template: str = None) -> None:
         """Sets attribute of flight ID
 
         Parameters
@@ -62,6 +62,9 @@ class Sonde:
         flight_id : str
             The flight ID of the flight during which the sonde was launched
         """
+        if flight_template is not None:
+            flight_id = flight_template.format(flight_id=flight_id)
+
         object.__setattr__(self, "flight_id", flight_id)
 
     def add_platform_id(self, platform_id: str) -> None:
@@ -117,19 +120,23 @@ class Sonde:
         object.__setattr__(self, "afile", path_to_afile)
         return self
 
-    def add_level_dir(self):
-        if not hasattr(self, "afile"):
-            raise ValueError("No afile in sonde. Cannot continue")
-        l0_dir = os.path.dirname(self.afile)
-        l1_dir = l0_dir.replace("Level_0", "Level_1")
-        l2_dir = l0_dir.replace("Level_0", "Level_2")
-        l3_dir = l0_dir.replace("Level_0", "Level_3").replace(f"/{self.flight_id}", "")
-        print(l3_dir)
-        print(self.flight_id)
+    def add_level_dir(self, l0_dir: str = None, l1_dir: str = None, l2_dir: str = None):
+        if l0_dir is None:
+            if not hasattr(self, "afile"):
+                raise ValueError("No afile in sonde. Cannot continue")
+            l0_dir = os.path.dirname(self.afile)
+        if l1_dir is None:
+            l1_dir = l0_dir.replace("Level_0", "Level_1")
+        else:
+            l1_dir = l1_dir.format(flight_id=self.flight_id)
+        if l2_dir is None:
+            l2_dir = l0_dir.replace("Level_0", "Level_2")
+        else:
+            l2_dir = l2_dir.format(flight_id=self.flight_id)
+
         object.__setattr__(self, "l0_dir", l0_dir)
         object.__setattr__(self, "l1_dir", l1_dir)
         object.__setattr__(self, "l2_dir", l2_dir)
-        object.__setattr__(self, "l3_dir", l3_dir)
 
     def run_aspen(self, path_to_postaspenfile: str = None) -> None:
         """Runs aspen and sets attribute with path to post-ASPEN file of the sonde

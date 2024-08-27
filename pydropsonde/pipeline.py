@@ -226,6 +226,7 @@ def create_and_populate_flight_object(
     )
     output["platforms"] = platform_objects
     output["sondes"] = {}
+
     for platform in platform_objects:
         for flight_id in platform_objects[platform].flight_ids:
             flight = Flight(
@@ -235,7 +236,7 @@ def create_and_populate_flight_object(
                 path_structure=path_structure,
             )
 
-            output["sondes"].update(flight.populate_sonde_instances())
+            output["sondes"].update(flight.populate_sonde_instances(config))
     return output["platforms"], output["sondes"]
 
 
