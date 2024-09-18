@@ -247,18 +247,19 @@ def create_and_populate_flight_object(
 def create_and_populate_additional_sondes(
     sondes: dict, config: configparser.ConfigParser, level=2
 ) -> dict[Sonde]:
-
-    data_directory = config.get("MANDATORY", "data_directory")
-    platforms = config.get("OPTIONAL", "additional_platforms").split(",")
-    platform_template = config.get("OPTIONAL", "additional_platform_folder")
-    platform_objs = [
-        Platform(data_directory, platform, platform_template.format(platform=platform))
-        for platform in platforms
-    ]
-    for platform in platform_objs:
-        new_sondes = platform.populate_sonde_instances(config)
-
-    sondes.update(new_sondes)
+    if config.has_option("OPTIONAL", "additional_platforms"):
+        data_directory = config.get("MANDATORY", "data_directory")
+        platforms = config.get("OPTIONAL", "additional_platforms").split(",")
+        platform_template = config.get("OPTIONAL", "additional_platform_folder")
+        platform_objs = [
+            Platform(
+                data_directory, platform, platform_template.format(platform=platform)
+            )
+            for platform in platforms
+        ]
+        for platform in platform_objs:
+            new_sondes = platform.populate_sonde_instances(config)
+        sondes.update(new_sondes)
     return sondes
 
 
