@@ -3,6 +3,7 @@ from dataclasses import dataclass, field, KW_ONLY
 from datetime import datetime
 from typing import Any, Optional, List
 import os
+import glob
 import subprocess
 import warnings
 
@@ -964,7 +965,7 @@ class Sonde:
 
         return self
 
-    def add_l2_ds(self, l2_dir: str = None):
+    def add_l2_ds(self, l2_dir: str = None, l2_ds: xr.Dataset = None):
         """
         Adds the L2 dataset as an attribute to the sonde object.
 
@@ -980,15 +981,24 @@ class Sonde:
         """
         if l2_dir is None:
             l2_dir = self.l2_dir
-
-        try:
+        if l2_ds:
             object.__setattr__(
-                self, "l2_ds", xr.open_dataset(os.path.join(l2_dir, self.l2_filename))
+                self,
+                "l2_ds",
+                l2_ds,
             )
+        else:
+            try:
+                object.__setattr__(
+                    self,
+                    "l2_ds",
+                    xr.open_dataset(os.path.join(l2_dir, self.l2_filename)),
+                )
 
-            return self
-        except FileNotFoundError:
-            return None
+            except FileNotFoundError:
+                return None
+
+        return self
 
     def create_prep_l3(self):
         _prep_l3_ds = self.l2_ds.assign_coords(
@@ -1001,9 +1011,12 @@ class Sonde:
         self, interim_l3_path: str = None, interim_l3_filename: str = None
     ):
         if interim_l3_path is None:
-            interim_l3_path = self.l2_dir.replace("Level_2", "Level_3_interim").replace(
-                self.flight_id, ""
-            )
+            try:
+                interim_l3_path = self.l2_dir.replace(
+                    "Level_2", "Level_3_interim"
+                ).replace(self.flight_id, "")
+            except AttributeError:
+                interim_l3_path = self.l2_dir.replace("Level_2", "Level_3_interim")
         if interim_l3_filename is None:
             interim_l3_filename = "interim_l3_{sonde_id}_{version}.nc".format(
                 sonde_id=self.serial_id, version=__version__

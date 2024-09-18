@@ -181,13 +181,14 @@ def get_platforms(config):
                 )
         platform_objects = {}
         for platform, platform_directory_name in platforms.items():
-
-            platform_objects[platform] = Platform(
+            new_platform = Platform(
                 data_directory=data_directory,
                 platform_id=platform,
                 platform_directory_name=platform_directory_name,
                 path_structure=path_structure,
             )
+            new_platform.flight_ids = new_platform.get_flight_ids()
+            platform_objects[platform] = new_platform
     else:
         platforms = [
             name
@@ -196,16 +197,19 @@ def get_platforms(config):
         ]
         platform_objects = {}
         for platform in platforms:
-            platform_objects[platform] = Platform(
+            new_platform = Platform(
                 data_directory=data_directory,
                 platform_id=platform,
                 path_structure=path_structure,
             )
+            new_platform.flight_ids = new_platform.get_flight_ids()
+            platform_objects[platform] = new_platform
     return platform_objects
 
 
 def create_and_populate_flight_object(
     config: configparser.ConfigParser,
+    level_key: str = "path_to_l0_files",
 ) -> (dict[Platform], dict[Sonde]):
     """
     Creates a Flight object and populates it with A-files.
@@ -223,9 +227,7 @@ def create_and_populate_flight_object(
     output = {}
 
     platform_objects = get_platforms(config)
-    path_structure = config.get(
-        "OPTIONAL", "path_to_l0_files", fallback=path_to_l0_files
-    )
+    path_structure = config.get("OPTIONAL", level_key, fallback=path_to_l0_files)
     output["platforms"] = platform_objects
     output["sondes"] = {}
 
@@ -240,6 +242,24 @@ def create_and_populate_flight_object(
 
             output["sondes"].update(flight.populate_sonde_instances(config))
     return output["platforms"], output["sondes"]
+
+
+def create_and_populate_additional_sondes(
+    sondes: dict, config: configparser.ConfigParser, level=2
+) -> dict[Sonde]:
+
+    data_directory = config.get("MANDATORY", "data_directory")
+    platforms = config.get("OPTIONAL", "additional_platforms").split(",")
+    platform_template = config.get("OPTIONAL", "additional_platform_folder")
+    platform_objs = [
+        Platform(data_directory, platform, platform_template.format(platform=platform))
+        for platform in platforms
+    ]
+    for platform in platform_objs:
+        new_sondes = platform.populate_sonde_instances(config)
+
+    sondes.update(new_sondes)
+    return sondes
 
 
 def iterate_Sonde_method_over_dict_of_Sondes_objects(
@@ -439,13 +459,22 @@ pipeline = {
         "output": "sondes",
         "comment": "This steps creates the L2 files after the QC (user says how QC flags are used to go from L1 to L2) and then saves these as L2 NC datasets.",
     },
+    "prepare_drop": {
+        "intake": "sondes",
+        "apply": iterate_Sonde_method_over_dict_of_Sondes_objects,
+        "functions": ["get_l2_filename", "add_l2_ds"],
+        "output": "sondes",
+    },
+    "add_additionals": {
+        "intake": "sondes",
+        "apply": create_and_populate_additional_sondes,
+        "output": "sondes",
+    },
     "process_L2": {
         "intake": "sondes",
         "apply": iterate_Sonde_method_over_dict_of_Sondes_objects,
         "functions": [
             "check_interim_l3",
-            "get_l2_filename",
-            "add_l2_ds",
             "create_prep_l3",
             "add_q_and_theta_to_l2_ds",
             "remove_non_mono_incr_alt",

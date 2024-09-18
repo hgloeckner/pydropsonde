@@ -1,5 +1,6 @@
 import glob
 import logging
+import xarray as xr
 from pathlib import Path as pp
 from typing import Dict
 import os.path
@@ -8,6 +9,7 @@ import warnings
 from pydropsonde.helper import rawreader as rr
 from pydropsonde.processor import Sonde
 from pydropsonde.helper import path_to_flight_ids, path_to_l0_files
+from pydropsonde.helper.adjust_soundings import radio2drop_format
 
 # create logger
 module_logger = logging.getLogger("pydropsonde.helper.paths")
@@ -32,7 +34,6 @@ class Platform:
         self.platform_directory_name = platform_directory_name
         self.data_directory = data_directory
         self.path_structure = path_structure
-        self.flight_ids = self.get_flight_ids()
 
     def get_flight_ids(self):
         """Returns a list of flight IDs for the given platform and level directory"""
@@ -50,6 +51,33 @@ class Platform:
                 if os.path.isdir(os.path.join(dir_with_flights, flight_id)):
                     flight_ids.append(flight_id)
         return flight_ids
+
+    def populate_sonde_instances(
+        self, config, level=2, adjust_data_fct=radio2drop_format
+    ) -> Dict:
+        sondes = {}
+        if level == 2:
+            if self.platform_directory_name is None:
+                platform_dir = os.path.join(self.data_directory, self.platform_id)
+            else:
+                platform_dir = os.path.join(
+                    self.data_directory, self.platform_directory_name
+                )
+            l2_files = glob.glob(os.path.join(platform_dir, "*.nc"))
+            for file in l2_files:
+                temp_ds = xr.open_dataset(file)
+                sonde_id, launch_time, temp_ds = adjust_data_fct(temp_ds)
+                sondes[sonde_id] = Sonde(sonde_id, launch_time=launch_time)
+                sondes[sonde_id].add_platform_id(self.platform_id)
+                sondes[sonde_id].add_level_dir(platform_dir)
+                sondes[sonde_id].get_l2_filename(l2_filename=os.path.basename(file))
+                sondes[sonde_id].add_l2_ds(l2_ds=temp_ds)
+                print(sondes[sonde_id].l2_ds)
+        else:
+            raise NotImplementedError(
+                "At the moment, additional sondes can only be added at level2"
+            )
+        return sondes
 
 
 class Flight:
