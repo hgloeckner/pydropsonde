@@ -18,6 +18,14 @@ For the example data this would be
         path_to_flight_ids = {platform}/Level_0
         path_to_l0_files = {platform}/Level_0/{flight_id}
 
+If there are any global attributes that should be added to any dataset that is saved, those can be added to the optional section. For example
+
+.. code-block:: ini
+
+        [OPTIONAL]
+        global_attrs = author:Geet George,author_email:g.george@tudelft.nl
+
+would adds the attributes ``author : Geet George`` and ``author_email : g.george@tudelft.nl``. Be careful to not add : or , into the attrubutes you want added. Those are used as separators.
 
 Other optional function parameters can be specified with their function as a section. To specify the L2 and L3 filenames this could be
 
