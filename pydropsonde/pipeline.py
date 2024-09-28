@@ -1,5 +1,9 @@
 from .helper.paths import Platform, Flight
-from .helper.__init__ import path_to_flight_ids, path_to_l0_files
+from .helper.__init__ import (
+    path_to_flight_ids,
+    path_to_l0_files,
+    get_global_attrs_from_config,
+)
 from .processor import Sonde, Gridded
 from .circles import Circle
 import configparser
@@ -358,7 +362,8 @@ def iterate_Circle_method_over_dict_of_Circle_objects(
 
 
 def sondes_to_gridded(sondes: dict, config: configparser.ConfigParser):
-    gridded = Gridded(sondes)
+    global_attrs = get_global_attrs_from_config(config)
+    gridded = Gridded(sondes, global_attrs=global_attrs)
     gridded.concat_sondes()
     return gridded
 
@@ -500,8 +505,8 @@ pipeline = {
             "get_l2_variables",
             "add_compression_and_encoding_properties",
             "get_flight_attributes",
-            "get_other_global_attributes",
-            "add_global_attributes_to_interim_l2_ds",
+            "get_sonde_attributes",
+            "add_l2_attributes_to_interim_l2_ds",
             "add_sonde_id_variable",
             "get_l2_filename",
             "write_l2",
@@ -525,7 +530,6 @@ pipeline = {
             "add_thetas",
             "add_wind",
             "add_attributes_as_var",
-            "rename_attr_vars",
             "make_prep_interim",
             "save_interim_l3",
         ],

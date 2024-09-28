@@ -7,7 +7,7 @@ l3_default = "Level_3.nc"
 
 @pytest.fixture
 def gridded():
-    return Gridded(sondes)
+    return Gridded(sondes, None)
 
 
 def test_l3_dir(gridded):

@@ -795,7 +795,7 @@ class Sonde:
         if attributes is None:
             attributes = {}
         object.__setattr__(self, "global_attrs", attributes)
-            
+
         return self
 
     def get_sonde_attributes(self):
@@ -956,8 +956,11 @@ class Sonde:
 
         if not os.path.exists(l2_dir):
             os.makedirs(l2_dir)
-        hh.to_file(self._interim_l2_ds, os.path.join(l2_dir, self.l2_filename))
+        ds = self._interim_l2_ds
+        if hasattr(self, "global_attrs"):
+            ds = ds.assign_attrs(self.global_attrs)
 
+        hh.to_file(ds, os.path.join(l2_dir, self.l2_filename))
         return self
 
     def add_l2_ds(self, l2_dir: str = None):
@@ -1170,47 +1173,43 @@ class Sonde:
         object.__setattr__(self, "_prep_l3_ds", interp_ds)
         return self
 
-    def add_attributes_as_var(self):
+    def add_attributes_as_var(self, essential_attrs=None):
         """
         Prepares l2 datasets to be concatenated to gridded.
         adds all attributes as variables to avoid conflicts when concatenating because attributes are different
         (and not lose information)
         """
-        _prep_l3_ds = self._prep_l3_ds
-        attr_list = []
-        for attr, value in self._prep_l3_ds.attrs.items():
-            _prep_l3_ds[attr] = value
-            attr_list.append(attr)
-
-        _prep_l3_ds.attrs.clear()
-
-        object.__setattr__(self, "attrs", attr_list)
-        object.__setattr__(self, "_prep_l3_ds", _prep_l3_ds)
-        return self
-
-    def rename_attr_vars(self):
-        attrs = self.attrs
         ds = self._prep_l3_ds
-        for attr in self.attrs:
+        if essential_attrs is None:
+            try:
+                essential_attrs = hh.l3_coords
+            except AttributeError:
+                essential_attrs = ["launch_time"]
+
+        elif essential_attrs == "all":
+            essential_attrs = list(ds.attrs.keys())
+        for attr, value in ds.attrs.items():
             splt = attr.split("(")
             var_name = splt[0][:-1]
-            try:
-                unit = splt[1][:-1]
-                attrs.append(var_name)
-                ds = ds.rename({attr: var_name})
-                ds[var_name] = ds[var_name].assign_attrs(units=unit)
-            except IndexError:
-                pass
+            if var_name in essential_attrs:
+                try:
+                    unit = splt[1][:-1]
+                    ds = ds.assign(
+                        {var_name: ("sonde_id", [ds.attrs[attr]], {"units": unit})}
+                    )
+                except IndexError:
+                    ds = ds.assign({var_name: ("sonde_id", [ds.attrs[attr]])})
+        ds.attrs.clear()
         ds = ds.assign(
             dict(
                 launch_time=(
                     "sonde_id",
-                    [ds.launch_time.astype(np.datetime64).values],
+                    ds.launch_time.astype(np.datetime64).values,
                     {"time_zone": ds.launch_time.attrs["units"]},
                 )
             )
         )
-        object.__setattr__(self, "attrs", attrs)
+
         object.__setattr__(self, "_prep_l3_ds", ds)
         return self
 
@@ -1219,8 +1218,12 @@ class Sonde:
         return self
 
     def save_interim_l3(self):
+        ds = self._interim_l3_ds
+        if hasattr(self, "global_attrs"):
+            ds = ds.assign_attrs(self.global_attrs)
+
         os.makedirs(self.interim_l3_dir, exist_ok=True)
-        hh.to_file(self._interim_l3_ds, self.interim_l3_path)
+        hh.to_file(ds, self.interim_l3_path)
 
         return self
 
@@ -1228,13 +1231,20 @@ class Sonde:
 @dataclass(order=True)
 class Gridded:
     sondes: dict
+    global_attrs: dict
+
+    def __post_init__(self):
+        if self.global_attrs is None:
+            self.global_attrs = {}
 
     def concat_sondes(self):
         """
         function to concatenate all sondes using the combination of all measurement times and launch times
         """
         list_of_l2_ds = [sonde._interim_l3_ds for sonde in self.sondes.values()]
-        self._interim_l3_ds = xr.concat(list_of_l2_ds, dim="sonde_id", join="exact")
+        self._interim_l3_ds = xr.concat(
+            list_of_l2_ds, dim="sonde_id", join="exact", combine_attrs="drop_conflicts"
+        )
         return self
 
     def get_all_attrs(self):
@@ -1271,6 +1281,9 @@ class Gridded:
     def write_l3(self, l3_dir: str = None):
         if l3_dir is None:
             l3_dir = self.l3_dir
+        ds = self._interim_l3_ds
+        if hasattr(self, "global_attrs"):
+            ds = ds.assign_attrs(self.global_attrs)
 
         if not os.path.exists(l3_dir):
             os.makedirs(l3_dir)
@@ -1280,9 +1293,10 @@ class Gridded:
             filetype = "zarr"
         else:
             raise ValueError("filetype unknown")
-        encoding = hh.get_encoding(self._interim_l3_ds, filetype=filetype)
+
+        encoding = hh.get_encoding(ds, filetype=filetype)
         hh.to_file(
-            ds=self._interim_l3_ds,
+            ds=ds,
             path=os.path.join(l3_dir, self.l3_filename),
             encoding=encoding,
         )
