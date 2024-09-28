@@ -7,6 +7,11 @@ import xarray as xr
 import numcodecs
 from zarr.errors import ContainsGroupError
 
+from importlib.metadata import version
+
+__version__ = version("pydropsonde")
+
+
 # Keys in l2_variables should be variable names in aspen_ds attribute of Sonde object
 l2_variables = {
     "u_wind": {
@@ -271,6 +276,17 @@ def get_si_converter_function_based_on_var(var_name):
     if func is None:
         raise ValueError(f"No function named {func_name} found in the module")
     return func
+
+
+def get_global_attrs_from_config(config):
+    """get global attributes from config"""
+    global_attrs = config.get("OPTIONAL", "global_attrs", fallback={})
+
+    if global_attrs:
+        attr_pairs = global_attrs.split(",")
+        global_attrs = {pair.split(":")[0]: pair.split(":")[1] for pair in attr_pairs}
+    global_attrs["version"] = __version__
+    return global_attrs
 
 
 def calc_saturation_pressure(temperature_K, method="hardy1998"):
