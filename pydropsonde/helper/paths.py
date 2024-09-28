@@ -7,7 +7,11 @@ import warnings
 
 from pydropsonde.helper import rawreader as rr
 from pydropsonde.processor import Sonde
-from pydropsonde.helper import path_to_flight_ids, path_to_l0_files
+from pydropsonde.helper import (
+    path_to_flight_ids,
+    path_to_l0_files,
+    get_global_attrs_from_config,
+)
 
 # create logger
 module_logger = logging.getLogger("pydropsonde.helper.paths")
@@ -179,6 +183,10 @@ class Flight:
                         "processor.Sonde.add_level_dir", "l2_dir", fallback=None
                     ),
                 )
+
+                global_attrs = get_global_attrs_from_config(config)
+
+                Sondes[sonde_id].add_global_attrs(global_attrs)
             except UnboundLocalError:
                 warnings.warn(f"No valid a-file for sonde {sonde_id}")
                 pass
