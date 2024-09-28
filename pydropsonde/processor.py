@@ -792,24 +792,22 @@ class Sonde:
 
         return self
 
-    def get_other_global_attributes(self):
+    def add_global_attrs(self, attributes=None):
+        if attributes is None:
+            attributes = {}
+        object.__setattr__(self, "global_attrs", attributes)
+            
+        return self
+
+    def get_sonde_attributes(self):
         nc_global_attrs = {
-            # "title": "Level-2",
-            # "doi": f"{pydropsonde.data_doi}",
-            # "created with": f"pipeline.py doi:{pydropsonde.software_doi}",
-            "Conventions": "CF-1.8",
             "platform_id": self.platform_id,
-            # "instrument_id": "Vaisala RD-41",
-            "product_id": "Level-2",
-            # "AVAPS_Software_version": "Version 4.1.2",
             "ASPEN_version": (
                 self.aspen_ds.AspenVersion
                 if hasattr(self.aspen_ds, "AspenVersion")
                 else self.aspen_ds.AvapsEditorVersion
             ),
             "ASPEN_processing_time": self.aspen_ds.ProcessingTime,
-            # "JOANNE_version": joanne.__version__,
-            # "launch_date": str(pd.to_datetime(self.launch_time).date()),
             "launch_time_(UTC)": (
                 str(self.aspen_ds.launch_time.values)
                 if hasattr(self.aspen_ds, "launch_time")
@@ -817,10 +815,6 @@ class Sonde:
             ),
             "is_floater": self.is_floater.__str__(),
             "sonde_serial_ID": self.serial_id,
-            "author": "Geet George",
-            "author_email": "g.george@tudelft.nl",
-            "featureType": "trajectory",
-            # "reference": pydropsonde.reference_study,
             "creation_time": str(datetime.utcnow()) + " UTC",
         }
 
@@ -838,7 +832,7 @@ class Sonde:
 
         return self
 
-    def add_global_attributes_to_interim_l2_ds(self):
+    def add_l2_attributes_to_interim_l2_ds(self):
         """
         Adds global attributes to _interim_l2_ds.
 
