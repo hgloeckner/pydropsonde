@@ -1198,27 +1198,36 @@ class Sonde:
         return self
 
     def get_N_m_values(self, alt_var="alt"):
+        essential_vars = ["u", "v", "rh", "p", "ta"]
+
         binned_ds = self._binned_ds
         prep_l3 = self._prep_l3_ds
 
         N = binned_ds.count().transpose().rename({f"{alt_var}_bins": alt_var})
 
-        for variable in [var for var in N.variables if var not in N.coords]:
+        for variable in [
+            var for var in essential_vars if var not in N.coords if var in N.variables
+        ]:
             N_name = f"N{variable}"
             N_attrs = dict(
                 long_name=f"Number of values per bin for {variable}",
             )
+            # the casting will cause a runtime warning without
+            int_n = N[variable].values
+            mask = np.isnan(int_n)
+            int_n[mask] = 0
+
             prep_l3 = prep_l3.assign(
                 {
                     N_name: (
-                        prep_l3[variable].dims,
-                        N[variable].values.astype(int),
+                        N[variable].dims,
+                        int_n.astype(int),
                         N_attrs,
                     )
                 }
             )
-            prep_l3 = hx.add_ancillary_var(prep_l3, variable, N_name)
-            # get m
+
+            # cast to int
             N2m = N[variable]
             n_mask = N2m.where(~np.isnan(N2m), 0)
             int_mask = prep_l3[variable].where(~np.isnan(prep_l3[variable]), 0)
@@ -1243,52 +1252,67 @@ class Sonde:
                     )
                 }
             )
-            prep_l3 = hx.add_ancillary_var(prep_l3, variable, m_name)
         object.__setattr__(self, "_prep_l3_ds", prep_l3)
 
         return self
 
-    def add_attributes_as_var(self):
+    def remove_N_m_duplicates(self):
+        ds = self._prep_l3_ds
+        np.testing.assert_array_equal(ds.mu.values, ds.mv.values)
+        np.testing.assert_array_equal(ds.Nu.values, ds.Nv.values)
+        ds = ds.drop_vars(["mv", "Nv"])
+        object.__setattr__(self, "_prep_l3_ds", ds)
+        return self
+
+    def add_ancillary_vars(self):
+        self.remove_N_m_duplicates()
+        ds = self._prep_l3_ds
+        essential_vars = ["u", "v", "rh", "p", "ta"]
+        mN_vars = ["gps", "gps", "rh", "p", "ta"]
+        for essential_var, mNvar in zip(essential_vars, mN_vars):
+            ds = hx.add_ancillary_var(ds, essential_var, "m" + mNvar)
+            ds = hx.add_ancillary_var(ds, essential_var, "N" + mNvar)
+
+        object.__setattr__(self, "_prep_l3_ds", ds)
+        return self
+
+    def add_attributes_as_var(self, essential_attrs=None):
         """
         Prepares l2 datasets to be concatenated to gridded.
         adds all attributes as variables to avoid conflicts when concatenating because attributes are different
         (and not lose information)
         """
-        _prep_l3_ds = self._prep_l3_ds
-        attr_list = []
-        for attr, value in self._prep_l3_ds.attrs.items():
-            _prep_l3_ds[attr] = value
-            attr_list.append(attr)
-
-        _prep_l3_ds.attrs.clear()
-
-        object.__setattr__(self, "attrs", attr_list)
-        object.__setattr__(self, "_prep_l3_ds", _prep_l3_ds)
-        return self
-
-    def rename_attr_vars(self):
-        attrs = self.attrs
         ds = self._prep_l3_ds
-        for attr in self.attrs:
+        if essential_attrs is None:
+            try:
+                essential_attrs = hh.l3_coords
+            except AttributeError:
+                essential_attrs = ["launch_time"]
+
+        elif essential_attrs == "all":
+            essential_attrs = list(ds.attrs.keys())
+        for attr, value in ds.attrs.items():
             splt = attr.split("(")
             var_name = splt[0][:-1]
-            try:
-                unit = splt[1][:-1]
-                attrs.append(var_name)
-                ds = ds.rename({attr: var_name})
-                ds[var_name] = ds[var_name].assign_attrs(units=unit)
-            except IndexError:
-                pass
+            if var_name in essential_attrs:
+                try:
+                    unit = splt[1][:-1]
+                    ds = ds.assign(
+                        {var_name: ("sonde_id", [ds.attrs[attr]], {"units": unit})}
+                    )
+                except IndexError:
+                    ds = ds.assign({var_name: ("sonde_id", [ds.attrs[attr]])})
+        ds.attrs.clear()
         ds = ds.assign(
             dict(
                 launch_time=(
                     "sonde_id",
-                    [ds.launch_time.astype(np.datetime64).values],
+                    ds.launch_time.astype(np.datetime64).values,
                     {"time_zone": ds.launch_time.attrs["units"]},
                 )
             )
         )
-        object.__setattr__(self, "attrs", attrs)
+
         object.__setattr__(self, "_prep_l3_ds", ds)
         return self
 
