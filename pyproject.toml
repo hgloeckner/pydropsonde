@@ -39,7 +39,7 @@ seaborn = "*"
 tqdm = "*"
 xarray = "*"
 zarr = "*"
-circle-fit = "^0.2.1"
+circle-fit = "*"
 moist-thermodynamics = {git = "https://gitlab.dkrz.de/m219063/moist_thermodynamics.git"}
 
 [tool.poetry.group.test.dependencies]
