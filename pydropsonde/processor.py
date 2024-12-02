@@ -1716,7 +1716,19 @@ class Gridded:
 
     def concat_sondes(self, sortby=None, coords=None):
         """
-        function to concatenate all sondes using the combination of all measurement times and launch times and add global attributes to resulting dataset
+        Concatenates all sondes using the combination of all measurement times and launch times, and adds global attributes to the resulting dataset.
+
+        Parameters
+        ----------
+        sortby : str, optional
+            The coordinate to sort the concatenated dataset by.
+        coords : dict, optional
+            Coordinates to assign to the dataset if missing.
+
+        Returns
+        -------
+        self : Gridded
+            Returns the Gridded object with concatenated sondes.
         """
         if sortby is None:
             sortby = list(hh.l3_coords.keys())[0]
