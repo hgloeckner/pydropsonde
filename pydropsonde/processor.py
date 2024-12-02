@@ -120,6 +120,26 @@ class Sonde:
         return self
 
     def add_level_dir(self, l0_dir: str = None, l1_dir: str = None, l2_dir: str = None):
+        """
+        Sets the directory paths for different data levels (Level 0, Level 1, Level 2)
+        within the object. If specific directories are not provided, default paths
+        are generated based on the existing 'afile' attribute or by replacing
+        'Level_0' in the path with 'Level_1' or 'Level_2'.
+
+        Parameters:
+        - l0_dir (str, optional): The directory path for Level 0 data. If not provided,
+        it defaults to the directory of 'afile'.
+        - l1_dir (str, optional): The directory path for Level 1 data. If not provided,
+        it defaults to the Level 0 directory with 'Level_0' replaced by 'Level_1'.
+        Can include a placeholder '{flight_id}' for dynamic replacement.
+        - l2_dir (str, optional): The directory path for Level 2 data. If not provided,
+        it defaults to the Level 0 directory with 'Level_0' replaced by 'Level_2'.
+        Can include a placeholder '{flight_id}' for dynamic replacement.
+
+        Raises:
+        - ValueError: If 'afile' attribute is not present in the sonde and 'l0_dir'
+        is not provided.
+        """
         if l0_dir is None:
             if not hasattr(self, "afile"):
                 raise ValueError("No afile in sonde. Cannot continue")
