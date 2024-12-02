@@ -112,7 +112,7 @@ launch_time = "2020-02-02 20:22:02"
 class TestGroup:
     @pytest.fixture(autouse=True)
     def sonde(self):
-        sonde = Sonde(serial_id=s_id, launch_time=launch_time)
+        sonde = Sonde(_serial_id=s_id, _launch_time=launch_time)
         sonde.add_flight_id(flight_id)
         sonde.add_platform_id(platform_id)
         sonde.set_alt_dim("alt")
@@ -130,8 +130,7 @@ class TestGroup:
         }
 
         ds = xr.Dataset.from_dict(data_dict)
-
-        object.__setattr__(self.sonde, "_prep_l3_ds", ds)
+        self.sonde.interim_l3_ds = ds
         self.sonde.swap_alt_dimension()
 
         new_sonde = self.sonde.interpolate_alt(
@@ -154,14 +153,14 @@ class TestGroup:
         result_ds = xr.Dataset.from_dict(res_dict)
 
         print(result_ds)
-        print(new_sonde._prep_l3_ds)
+        print(new_sonde.interim_l3_ds)
 
-        assert not np.any(np.abs(result_ds.p - new_sonde._prep_l3_ds.p) > 1e-6)
-        assert result_ds.drop_vars("p").equals(new_sonde._prep_l3_ds.drop_vars("p"))
+        assert not np.any(np.abs(result_ds.p - new_sonde.interim_l3_ds.p) > 1e-6)
+        assert result_ds.drop_vars("p").equals(new_sonde.interim_l3_ds.drop_vars("p"))
         self.interp_sonde = new_sonde
 
     def test_N_m(self, sonde_interp, test_input, expected):
         new_sonde = self.interp_sonde.get_N_m_values()
-        print(new_sonde._prep_l3_ds)
-        assert np.all(new_sonde._prep_l3_ds["q_N_qc"].values == expected["Nq"])
-        assert np.all(new_sonde._prep_l3_ds["q_m_qc"].values == expected["mq"])
+        print(new_sonde.interim_l3_ds)
+        assert np.all(new_sonde.interim_l3_ds["q_N_qc"].values == expected["Nq"])
+        assert np.all(new_sonde.interim_l3_ds["q_m_qc"].values == expected["mq"])

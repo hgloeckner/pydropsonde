@@ -14,7 +14,7 @@ postaspenfile_name = f"D{file_name_launch[1:]}QC.nc"
 
 def test_Sonde_attrs():
     TestSonde_nolaunchtime = Sonde(s_id)
-    TestSonde_withlaunchtime = Sonde(s_id, launch_time=launch_time)
+    TestSonde_withlaunchtime = Sonde(s_id, _launch_time=launch_time)
 
     assert TestSonde_nolaunchtime.serial_id == s_id
     assert TestSonde_nolaunchtime.launch_time is None
@@ -85,7 +85,7 @@ def temp_postaspenfile(tmp_data_directory):
 
 @pytest.fixture
 def sonde():
-    sonde = Sonde(serial_id=s_id)
+    sonde = Sonde(_serial_id=s_id)
     sonde.add_flight_id(flight_id)
     assert sonde.flight_id == flight_id
     sonde.add_platform_id(platform_id)
@@ -115,7 +115,7 @@ def test_sonde_add_postaspenfile_with_only_afile(
     """
     Test the addition of a post-ASPEN file when an A-file has been added.
     """
-    sonde = Sonde(serial_id=s_id)
+    sonde = Sonde(_serial_id=s_id)
     sonde.add_afile(temp_afile_launchdetected)
     sonde.add_flight_id(flight_id)
     sonde.add_level_dir()
@@ -142,7 +142,7 @@ def test_sonde_add_aspen_ds_with_mismatched_sonde_id(
     """
     Test the addition of an ASPEN dataset with a mismatched SondeId.
     """
-    sonde = Sonde(serial_id=s_id[:-1])
+    sonde = Sonde(_serial_id=s_id[:-1])
     sonde.add_afile(temp_afile_launchdetected)
     sonde.add_flight_id(flight_id)
     sonde.add_level_dir()
