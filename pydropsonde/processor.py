@@ -1485,6 +1485,12 @@ class Sonde:
         return self
 
     def make_attr_coordinates(self):
+        """
+        Reshape and assign coordinats as defined in helper.__init__ to the level 3 dataset.
+
+        Returns:
+            self: The instance with updated coordinates in `_prep_l3_ds`.
+        """
         ds = self._prep_l3_ds
         new_coords = {
             coord: ("sonde_id", np.reshape(ds[coord].values, (1,)), ds[coord].attrs)
