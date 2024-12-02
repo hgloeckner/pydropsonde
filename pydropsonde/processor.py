@@ -1572,6 +1572,16 @@ class Sonde:
         return self
 
     def add_expected_coords(self):
+        """
+        Add missing expected coordinates to the dataset.
+
+        This method checks for any missing coordinates in the dataset (`_interim_l3_ds`)
+        by comparing it to the l3 coordinats as in helper.__init (`l3_coords`).
+        For each missing coordinate, it assigns a new coordinate filled with NaN values.
+
+        Returns:
+            self: The instance with the updated dataset containing all expected coordinates.
+        """
         ds = self._interim_l3_ds
         missing_coords = set(hh.l3_coords.keys()) - set(ds.coords)
         for coord in missing_coords:
