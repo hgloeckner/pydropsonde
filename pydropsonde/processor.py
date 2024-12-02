@@ -1887,6 +1887,22 @@ class Gridded:
         return self
 
     def get_simple_circle_times_from_yaml(self, yaml_file: str = None):
+        """
+        Extracts circle times and related information from a simplified YAML file.
+        This can be used for intermediated processing until the full flight
+        segmentation is available
+
+        Parameters:
+        - yaml_file (str): The path to the YAML file containing flight information.
+
+        Returns:
+        - self: The instance of the class with updated attributes:
+        - circle_times: List of tuples containing start and end times for each segment.
+        - sonde_ids: List of sonde IDs for each segment.
+        - segment_ids: List of segment IDs.
+        - platform_ids: List of platform IDs.
+        - flight_ids: List of flight IDs.
+        """
         with open(yaml_file) as source:
             flightinfo = yaml.load(source, Loader=yaml.SafeLoader)
 
