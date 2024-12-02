@@ -1502,6 +1502,19 @@ class Sonde:
         return self
 
     def add_qc_to_interim_l3(self, keep=["sonde_qc"]):
+        """
+        Add quality control flags to the interim Level 3 dataset.
+
+
+        Args:
+            keep (list or str): A list of quality control flags to keep. If 'all',
+                                all available flags are kept. If a string, it is
+                                split by commas to form a list.
+                                Default: sonde_qc
+
+        Returns:
+            self: The instance with updated `_prep_l3_ds` including quality control flags.
+        """
         if keep is None:
             keep = []
         elif keep == "all":
