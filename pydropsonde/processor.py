@@ -920,6 +920,13 @@ class Sonde:
             return None
 
     def create_prep_l3(self):
+        """
+        Assigns sonde_id coordinate to the  Level 2 dataset (`l2_ds`)  and sorts the dataset by time.
+        The resulting dataset is stored in`_prep_l3_ds` within the object.
+
+        Returns:
+            self: A sonde object with the updated `_prep_l3_ds` attribute.
+        """
         _prep_l3_ds = self.l2_ds.assign_coords(
             {"sonde_id": ("sonde_id", [self.l2_ds.sonde_id.values])}
         ).sortby("time")
