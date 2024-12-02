@@ -469,15 +469,15 @@ class Sonde:
             The default variables are 'rh', 'pres', and 'tdry'.
 
         skip : bool, optional
-            If set to True, the function will skip the conversion process but will still ensure that the '_interim_l2_ds' attribute is set.
-            If '_interim_l2_ds' is not already an attribute of the object, it will be set to 'aspen_ds'.
+            If set to True, the function will skip the conversion process but will still ensure that the 'interim_l2_ds' attribute is set.
+            If 'interim_l2_ds' is not already an attribute of the object, it will be set to 'aspen_ds'.
             Default is False.
 
         Returns
         -------
         self : object
             Returns the sonde object with the specified variables in aspen_ds converted to SI units.
-            If 'skip' is set to True, it returns the sonde object with '_interim_l2_ds' set to 'aspen_ds' if it wasn't already present.
+            If 'skip' is set to True, it returns the sonde object with 'interim_l2_ds' set to 'aspen_ds' if it wasn't already present.
         """
         if hh.get_bool(skip):
             if hasattr(self, "interim_l2_ds"):
@@ -518,8 +518,8 @@ class Sonde:
         Returns
         -------
         self : object
-            Returns the sonde object with only the specified variables (renamed if dictionary has 'rename_to' key and attributes added if dictionary has 'attributes' key) in _interim_l2_ds attribute.
-            If '_interim_l2_ds' is not already an attribute of the object, it will first be set to 'aspen_ds' before reducing to the variables and renaming.
+            Returns the sonde object with only the specified variables (renamed if dictionary has 'rename_to' key and attributes added if dictionary has 'attributes' key) in interim_l2_ds attribute.
+            If 'interim_l2_ds' is not already an attribute of the object, it will first be set to 'aspen_ds' before reducing to the variables and renaming.
         """
         if isinstance(l2_variables, str):
             l2_variables = ast.literal_eval(l2_variables)
@@ -710,7 +710,7 @@ class Sonde:
 
     def add_l2_attributes_to_interim_l2_ds(self):
         """
-        Adds flight, sonde and global attributes to _interim_l2_ds.
+        Adds flight, sonde and global attributes to interim_l2_ds.
 
         Parameters
         ----------
@@ -719,7 +719,7 @@ class Sonde:
         Returns
         -------
         self : object
-            Returns the sonde object with flight, sonde and global attributes added to _interim_l2_ds.
+            Returns the sonde object with flight, sonde and global attributes added to interim_l2_ds.
         """
         ds = self.interim_l2_ds
 
@@ -757,7 +757,7 @@ class Sonde:
         """
         Adds quality control (QC) flags to the level 2 dataset.
 
-        This function updates the internal level 2 dataset (`_interim_l2_ds`) by adding
+        This function updates the internal level 2 dataset (`interim_l2_ds`) by adding
         quality control flags. If `add_as_vars` is set to True, it adds the QC flags as
         variables within the dataset. The function assigns an overall quality flag named
         "sonde_all_qc" and updates its attributes to describe the flag values and meanings.
