@@ -1605,10 +1605,26 @@ class Gridded:
     global_attrs: dict
 
     def __post_init__(self):
+        """
+        Initializes the Gridded object, ensuring that global attributes are set to an empty dictionary if not provided.
+        """
         if self.global_attrs is None:
             self.global_attrs = {}
 
     def check_aspen_version(self):
+        """
+        Checks if all sondes have been processed with the same Aspen version.
+
+        Raises
+        ------
+        ValueError
+            If sondes have been processed with different Aspen versions.
+
+        Returns
+        -------
+        self : Gridded
+            Returns the Gridded object.
+        """
         list_of_l2_hist = [
             sonde._interim_l3_ds.attrs["history"].splitlines()[0]
             for sonde in self.sondes.values()
@@ -1621,6 +1637,19 @@ class Gridded:
         return self
 
     def check_pydropsonde_version(self):
+        """
+        Checks if all sondes have been processed with the same pydropsonde version.
+
+        Raises
+        ------
+        ValueError
+            If sondes have been processed with different pydropsonde versions.
+
+        Returns
+        -------
+        self : Gridded
+            Returns the Gridded object.
+        """
         list_of_l2_hist = [
             sonde._interim_l3_ds.attrs["history"].splitlines()[1]
             for sonde in self.sondes.values()
@@ -1633,6 +1662,14 @@ class Gridded:
         return self
 
     def add_history_to_ds(self):
+        """
+        Adds history information to the dataset by processing the history attribute of the first sonde.
+
+        Returns
+        -------
+        self : Gridded
+            Returns the Gridded object.
+        """
         first_sonde_history = list(self.sondes.values())[0]._interim_l3_ds.attrs[
             "history"
         ]
@@ -1651,11 +1688,27 @@ class Gridded:
         return self
 
     def add_alt_dim(self):
+        """
+        Adds altitude dimension from the first sonde to the Gridded object.
+
+        Returns
+        -------
+        self : Gridded
+            Returns the Gridded object.
+        """
         sonde = list(self.sondes.values())[0]
         self.alt_dim = sonde.alt_dim
         return self
 
     def check_broken(self):
+        """
+        Checks for broken sondes and adds them to the Gridded object if present.
+
+        Returns
+        -------
+        self : Gridded
+            Returns the Gridded object.
+        """
         sonde = list(self.sondes.values())[0]
         if hasattr(sonde, "broken_sondes"):
             self.broken_sondes = sonde.broken_sondes
