@@ -1758,6 +1758,14 @@ class Gridded:
         return self
 
     def get_all_attrs(self):
+        """
+        Collects all unique attributes from the sondes and stores them in the Gridded object.
+
+        Returns
+        -------
+        self : Gridded
+            Returns the Gridded object with collected attributes.
+        """
         attrs = set()
         for sonde in list(self.sondes.values()):
             attrs = set(sonde.attrs) | attrs
