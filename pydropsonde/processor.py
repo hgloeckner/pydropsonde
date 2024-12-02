@@ -448,6 +448,23 @@ class Sonde:
         return self
 
     def remove_non_qc_sondes(self, used_flags=None, remove_ugly=True):
+        """
+        Removes sondes that do not pass quality control checks.
+
+        This method checks the quality control (QC) status of the sonde using the specified flags.
+        If the sonde passes the QC checks, it is retained; otherwise, it is filtered out.
+
+        Parameters:
+        - used_flags (optional): A list of flags to be used for the QC check. If not provided, default flags are used.
+        - remove_ugly (bool, optional): A flag indicating whether drop 'UGLY' sondes.
+        Defaults to True.
+
+        Returns:
+        - self: If the sonde passes the QC checks.
+        - None: If the sonde fails the QC checks
+
+        Prints a message indicating the sonde has been filtered out if it fails the QC checks.
+        """
         if self.qc.check_qc(used_flags, check_ugly=remove_ugly):
             return self
         else:
