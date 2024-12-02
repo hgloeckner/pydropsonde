@@ -22,7 +22,7 @@ __version__ = version("pydropsonde")
 _no_default = object()
 
 
-@dataclass(order=True, frozen=True)
+@dataclass(order=True)
 class Sonde:
     """Class identifying a sonde and containing its metadata
 
@@ -39,10 +39,46 @@ class Sonde:
     """
 
     sort_index: np.datetime64 = field(init=False, repr=False)
-    serial_id: str
+    _serial_id: str
     cont: bool = True
     _: KW_ONLY
-    launch_time: Optional[Any] = None
+    _launch_time: Optional[Any] = None
+
+    @property
+    def flight_id(self):
+        return self._flight_id
+
+    @property
+    def serial_id(self):
+        return self._serial_id
+
+    def set_serial_id(self, serial_id):
+        self._serial_id = serial_id
+
+    @property
+    def platform_id(self):
+        return self._platform_id
+
+    @property
+    def launch_time(self):
+        return self._launch_time
+
+    def set_launch_time(self, launch_time):
+        self._launch_time = launch_time
+
+    @property
+    def aspen_ds(self):
+        return self._aspen_ds
+
+    def set_aspen_ds(self, value):
+        self._aspen_ds = value
+
+    @property
+    def l2_ds(self):
+        return self._l2_ds
+
+    def set_l2_ds(self, ds):
+        self._l2_ds = ds
 
     def __post_init__(self):
         """
@@ -50,9 +86,9 @@ class Sonde:
 
         The 'sort_index' attribute is only applicable when 'launch_time' is available. If 'launch_time' is None, 'sort_index' will not be set.
         """
-        object.__setattr__(self, "qc", type("", (), {})())
+        self.qc = QualityControl()
         if self.launch_time is not None:
-            object.__setattr__(self, "sort_index", self.launch_time)
+            self.sort_index = self.launch_time
 
     def add_flight_id(self, flight_id: str, flight_template: str = None) -> None:
         """Sets attribute of flight ID
@@ -65,7 +101,7 @@ class Sonde:
         if flight_template is not None:
             flight_id = flight_template.format(flight_id=flight_id)
 
-        object.__setattr__(self, "flight_id", flight_id)
+        self._flight_id = flight_id
 
     def add_platform_id(self, platform_id: str) -> None:
         """Sets attribute of platform ID
@@ -75,7 +111,7 @@ class Sonde:
         platform_id : str
             The platform ID of the flight during which the sonde was launched
         """
-        object.__setattr__(self, "platform_id", platform_id)
+        self._platform_id = platform_id
 
     def add_spatial_coordinates_at_launch(self, launch_coordinates: List) -> None:
         """Sets attributes of spatial coordinates at launch
@@ -90,9 +126,9 @@ class Sonde:
         """
         try:
             launch_alt, launch_lat, launch_lon = launch_coordinates
-            object.__setattr__(self, "launch_alt", launch_alt)
-            object.__setattr__(self, "launch_lat", launch_lat)
-            object.__setattr__(self, "launch_lon", launch_lon)
+            self.launch_alt = launch_alt
+            self.launch_lat = launch_lat
+            self.launch_lon = launch_lon
         except (ValueError, TypeError):
             print(
                 "Check if the sonde detected a launch, otherwise launch coordinates cannot be set"
@@ -106,7 +142,7 @@ class Sonde:
         launch_detect_bool : bool
             True if launch detected, else False
         """
-        object.__setattr__(self, "launch_detect", launch_detect_bool)
+        self.launch_detect = launch_detect_bool
 
     def add_afile(self, path_to_afile: str) -> None:
         """Sets attribute with path to A-file of the sonde
@@ -116,7 +152,7 @@ class Sonde:
         path_to_afile : str
             Path to the sonde's A-file
         """
-        object.__setattr__(self, "afile", path_to_afile)
+        self.afile = path_to_afile
         return self
 
     def add_level_dir(self, l0_dir: str = None, l1_dir: str = None, l2_dir: str = None):
@@ -132,13 +168,12 @@ class Sonde:
             l2_dir = l0_dir.replace("Level_0", "Level_2")
         else:
             l2_dir = l2_dir.format(flight_id=self.flight_id)
-
-        object.__setattr__(self, "l0_dir", l0_dir)
-        object.__setattr__(self, "l1_dir", l1_dir)
-        object.__setattr__(self, "l2_dir", l2_dir)
+        self.l0_dir = l0_dir
+        self.l1_dir = l1_dir
+        self.l2_dir = l2_dir
 
     def add_broken(self, broken_sondes: dict):
-        object.__setattr__(self, "broken_sondes", broken_sondes)
+        self.broken_sondes = broken_sondes
 
     def run_aspen(self, path_to_postaspenfile: str = None) -> None:
         """Runs aspen and sets attribute with path to post-ASPEN file of the sonde
@@ -196,8 +231,7 @@ class Sonde:
                 warnings.warn(
                     f"L0 file for sonde {self.serial_id} on {self.flight_id} is empty. No processing done"
                 )
-
-        object.__setattr__(self, "postaspenfile", path_to_postaspenfile)
+        self.postaspenfile = path_to_postaspenfile
         return self
 
     def add_aspen_ds(self) -> None:
@@ -222,19 +256,20 @@ class Sonde:
                 return None
             if "SondeId" not in ds.attrs:
                 if ds.attrs["SoundingDescription"].split(" ")[1] == self.serial_id:
-                    object.__setattr__(self, "aspen_ds", ds)
+                    self.set_aspen_ds(ds)
                 else:
                     raise ValueError(
                         f"I didn't find the `SondeId` attribute, so checked the `SoundingDescription` attribute. I found the ID in the `SoundingDescription` global attribute ({ds.attrs['SoundingDescription'].split(' ')[1]}) to not match with this instance's `serial_id` attribute ({self.serial_id}). Therefore, I am not storing the xarray dataset as an attribute."
                     )
             elif ds.attrs["SondeId"] == self.serial_id:
-                object.__setattr__(self, "aspen_ds", ds)
+                self.set_aspen_ds(ds)
+
             elif self.launch_detect == "UGLY":
                 warnings.warn(
                     f"I found the `SondeId` global attribute ({ds.attrs['SondeId']}) to not match with this instance's `serial_id` attribute ({self.serial_id}). This could be due to no afile for this sonde. Serial id is updated."
                 )
-                object.__setattr__(self, "serial_id", ds.attrs["SondeId"])
-                object.__setattr__(self, "aspen_ds", ds)
+                self.set_serial_id(ds.attrs["SondeId"])
+                self.set_aspen_ds(ds)
 
             else:
                 raise ValueError(
@@ -263,15 +298,7 @@ class Sonde:
             + aspen_time.isoformat()
             + f" ASPEN processing with {aspen_version} \n"
         )
-        object.__setattr__(self, "history", history)
-        return self
-
-    def initialize_qc(self):
-        """
-        initialize QC object for easier handling of quality control
-        """
-
-        object.__setattr__(self, "qc", QualityControl())
+        self.history = history
         return self
 
     def filter_no_launch_detect(self) -> None:
@@ -335,7 +362,7 @@ class Sonde:
         else:
             if hasattr(self, "aspen_ds"):
                 landing_time = self.qc.get_is_floater(aspen_ds=self.aspen_ds)
-                object.__setattr__(self, "landing_time", landing_time)
+                self.landing_time = landing_time
             else:
                 raise ValueError(
                     "The attribute `aspen_ds` does not exist. Please run `add_aspen_ds` method first."
@@ -357,11 +384,10 @@ class Sonde:
         """
         if hasattr(self.qc, "is_floater"):
             if self.qc.is_floater:
-                object.__setattr__(
-                    self,
-                    "cropped_aspen_ds",
-                    self.aspen_ds.sel(time=slice(self.landing_time, None)),
+                self.cropped_aspen_ds = self.aspen_ds.sel(
+                    time=slice(self.landing_time, None)
                 )
+
         else:
             raise ValueError(
                 "The attribute `is_floater` does not exist. Please run `detect_floater` method first."
@@ -396,7 +422,7 @@ class Sonde:
             run_qc = ["profile_fullness", "near_surface_coverage", "alt_near_gpsalt"]
         elif isinstance(run_qc, str):
             run_qc = run_qc.split(",")
-        ds = self._interim_l2_ds
+        ds = self.interim_l2_ds
         for fct in run_qc:
             qc_fct = getattr(self.qc, fct)
             qc_fct(ds)
@@ -428,8 +454,7 @@ class Sonde:
             ds = self.cropped_aspen_ds
         else:
             ds = self.aspen_ds
-
-        object.__setattr__(self, "_interim_l2_ds", ds)
+        self.interim_l2_ds = ds
 
         return self
 
@@ -455,17 +480,17 @@ class Sonde:
             If 'skip' is set to True, it returns the sonde object with '_interim_l2_ds' set to 'aspen_ds' if it wasn't already present.
         """
         if hh.get_bool(skip):
-            if hasattr(self, "_interim_l2_ds"):
+            if hasattr(self, "interim_l2_ds"):
                 return self
             else:
-                object.__setattr__(self, "_interim_l2_ds", self.aspen_ds)
+                self.interim_l2_ds = self.aspen_ds.copy()
                 return self
         else:
             if isinstance(variables, str):
                 variables = variables.split(",")
 
-            if hasattr(self, "_interim_l2_ds"):
-                ds = self._interim_l2_ds
+            if hasattr(self, "interim_l2_ds"):
+                ds = self.interim_l2_ds
             else:
                 ds = self.aspen_ds
 
@@ -474,8 +499,7 @@ class Sonde:
                 var_attrs = ds[variable].attrs
                 ds = ds.assign({f"{variable}": func(ds[variable])})
                 ds[variable].attrs.update(var_attrs)
-
-            object.__setattr__(self, "_interim_l2_ds", ds)
+            self.interim_l2_ds = ds
 
             return self
 
@@ -502,8 +526,8 @@ class Sonde:
 
         l2_variables_list = list(l2_variables.keys())
 
-        if hasattr(self, "_interim_l2_ds"):
-            ds = self._interim_l2_ds
+        if hasattr(self, "interim_l2_ds"):
+            ds = self.interim_l2_ds
         else:
             ds = self.aspen_ds
 
@@ -513,8 +537,7 @@ class Sonde:
             if "attributes" in variable_dict:
                 ds[variable].attrs = variable_dict["attributes"]
             ds = ds.rename({variable: variable_dict["rename_to"]})
-
-        object.__setattr__(self, "_interim_l2_ds", ds)
+        self.interim_l2_ds = ds
 
         return self
 
@@ -555,8 +578,7 @@ class Sonde:
                     f"No flight attributes for sonde {self.serial_id} on {self.flight_id}"
                 )
                 break
-
-        object.__setattr__(self, "flight_attrs", flight_attrs)
+        self.flight_attrs = flight_attrs
 
         return self
 
@@ -572,7 +594,7 @@ class Sonde:
         """
         if attributes is None:
             attributes = {}
-        object.__setattr__(self, "global_attrs", attributes)
+        self.global_attrs = attributes
 
         return self
 
@@ -596,8 +618,7 @@ class Sonde:
             "is_floater": self.qc.is_floater.__str__(),
             "sonde_serial_ID": self.serial_id,
         }
-
-        object.__setattr__(self, "sonde_attrs", sonde_attrs)
+        self.sonde_attrs = sonde_attrs
 
         return self
 
@@ -615,8 +636,8 @@ class Sonde:
         self : object
             Returns the sonde object with a variable containing serial_id. Name of the variable provided by 'variable_name'.
         """
-        if hasattr(self, "_interim_l2_ds"):
-            ds = self._interim_l2_ds
+        if hasattr(self, "interim_l2_ds"):
+            ds = self.interim_l2_ds
         else:
             ds = self.aspen_ds
         attrs = {
@@ -626,7 +647,7 @@ class Sonde:
         }
         ds = ds.assign_coords({variable_name: self.serial_id})
         ds[variable_name] = ds[variable_name].assign_attrs(attrs)
-        object.__setattr__(self, "_interim_l2_ds", ds)
+        self.interim_l2_ds = ds
 
         return self
 
@@ -644,8 +665,8 @@ class Sonde:
         self : object
             Returns the sonde object with a variable containing platform_id. Name of the variable provided by 'variable_name'.
         """
-        if hasattr(self, "_interim_l2_ds"):
-            ds = self._interim_l2_ds
+        if hasattr(self, "interim_l2_ds"):
+            ds = self.interim_l2_ds
         else:
             ds = self.aspen_ds
 
@@ -655,7 +676,7 @@ class Sonde:
         )
         ds = ds.assign_coords({variable_name: self.platform_id})
         ds[variable_name] = ds[variable_name].assign_attrs(attrs)
-        object.__setattr__(self, "_interim_l2_ds", ds)
+        self.interim_l2_ds = ds
         return self
 
     def add_flight_id_variable(self, variable_name="flight_id"):
@@ -672,8 +693,8 @@ class Sonde:
         self : object
             Returns the sonde object with a variable containing flight_id. Name of the variable provided by 'variable_name'.
         """
-        if hasattr(self, "_interim_l2_ds"):
-            ds = self._interim_l2_ds
+        if hasattr(self, "interim_l2_ds"):
+            ds = self.interim_l2_ds
         else:
             ds = self.aspen_ds
 
@@ -684,7 +705,7 @@ class Sonde:
 
         ds = ds.assign_coords({variable_name: self.flight_id})
         ds[variable_name] = ds[variable_name].assign_attrs(attrs)
-        object.__setattr__(self, "_interim_l2_ds", ds)
+        self.interim_l2_ds = ds
         return self
 
     def add_l2_attributes_to_interim_l2_ds(self):
@@ -700,7 +721,7 @@ class Sonde:
         self : object
             Returns the sonde object with flight, sonde and global attributes added to _interim_l2_ds.
         """
-        ds = self._interim_l2_ds
+        ds = self.interim_l2_ds
 
         attrs_to_del = []
         for attr in ds.attrs.keys():
@@ -722,10 +743,9 @@ class Sonde:
             + datetime.now(timezone.utc).isoformat()
             + f" quality control with pydropsonde {__version__} \n"
         )
-        object.__setattr__(self, "history", history)
+        self.history = history
         ds = ds.assign_attrs({"history": history})
-
-        object.__setattr__(self, "_interim_l2_ds", ds)
+        self.interim_l2_ds = ds
 
         return self
 
@@ -751,15 +771,14 @@ class Sonde:
         - self: The instance of the class with the updated dataset.
 
         """
-        ds = self._interim_l2_ds
+        ds = self.interim_l2_ds
         if add_var_qc:
             for variable in self.qc.qc_vars:
                 ds = self.qc.add_variable_flags_to_ds(ds, variable, details=add_details)
 
             ds = self.qc.add_non_var_qc_to_ds(ds)
         ds = self.qc.add_sonde_flag_to_ds(ds, "sonde_qc")
-
-        object.__setattr__(self, "_interim_l2_ds", ds)
+        self.interim_l2_ds = ds
         return self
 
     def get_l2_filename(
@@ -792,8 +811,7 @@ class Sonde:
                     serial_id=self.serial_id,
                     flight_id=self.flight_id,
                 )
-
-        object.__setattr__(self, "l2_filename", l2_filename)
+        self.l2_filename = l2_filename
 
         return self
 
@@ -815,7 +833,7 @@ class Sonde:
         if l2_dir is None:
             l2_dir = self.l2_dir
 
-        ds = self._interim_l2_ds
+        ds = self.interim_l2_ds
         if hasattr(self, "broken_sondes"):
             if self.serial_id in self.broken_sondes:
                 ds.attrs.update(
@@ -849,19 +867,17 @@ class Sonde:
             l2_dir = self.l2_dir
 
         try:
-            object.__setattr__(
-                self, "l2_ds", hx.open_dataset(os.path.join(l2_dir, self.l2_filename))
-            )
+            self.set_l2_ds(hx.open_dataset(os.path.join(l2_dir, self.l2_filename)))
 
             return self
         except FileNotFoundError:
             return None
 
-    def create_prep_l3(self):
-        _prep_l3_ds = self.l2_ds.assign_coords(
+    def create_interim_l3(self):
+        self.interim_l3_ds = self.l2_ds.assign_coords(
             {"sonde_id": ("sonde_id", [self.l2_ds.sonde_id.values])}
         ).sortby("time")
-        object.__setattr__(self, "_prep_l3_ds", _prep_l3_ds)
+
         return self
 
     def check_interim_l3(
@@ -882,17 +898,15 @@ class Sonde:
             interim_l3_filename = interim_l3_filename.format(
                 sonde_id=self.serial_id, version=__version__
             )
-        object.__setattr__(self, "interim_l3_dir", interim_l3_dir)
-        object.__setattr__(self, "interim_l3_filename", interim_l3_filename)
+        self.interim_l3_dir = interim_l3_dir
+        self.interim_l3_filename = interim_l3_filename
         if (not skip) and os.path.exists(
             os.path.join(interim_l3_dir, interim_l3_filename)
         ):
-            object.__setattr__(
-                self,
-                "_interim_l3_ds",
-                hx.open_dataset(os.path.join(interim_l3_dir, interim_l3_filename)),
+            self.interim_l3_ds = hx.open_dataset(
+                os.path.join(interim_l3_dir, interim_l3_filename)
             )
-            object.__setattr__(self, "cont", False)
+            self.cont = False
             return self
         else:
             return self
@@ -910,41 +924,36 @@ class Sonde:
         self : object
             Returns the sonde object with potential temperature and specific humidity added to the L2 dataset.
         """
-        ds = self._prep_l3_ds
+        ds = self.interim_l3_ds
 
         ds = hh.calc_theta_from_T(ds)
         ds = hh.calc_q_from_rh_sonde(ds)
 
-        object.__setattr__(self, "_prep_l3_ds", ds)
+        self.interim_l3_ds = ds
 
         return self
 
     def recalc_rh_and_ta(self):
-        ds = self._prep_l3_ds
+        ds = self.interim_l3_ds
         ds = hh.calc_T_from_theta(ds)
         ds = hh.calc_rh_from_q(ds)
-        object.__setattr__(self, "_prep_l3_ds", ds)
+        self.interim_l3_ds = ds
         return self
 
     def add_iwv(self):
-        ds = self._prep_l3_ds
-        ds = hh.calc_iwv(ds)
-
-        object.__setattr__(self, "_prep_l3_ds", ds)
+        self.interim_l3_ds = hh.calc_iwv(self.interim_l3_ds)
 
         return self
 
     def add_thetas(self):
-        ds = self._prep_l3_ds
+        ds = self.interim_l3_ds
         ds = hh.calc_theta_e(ds)
-        object.__setattr__(self, "_prep_l3_ds", ds)
+        self.interim_l3_ds = ds
 
         return self
 
     def add_wind(self):
-        ds = self._prep_l3_ds
-        ds = hh.calc_wind_dir_and_speed(ds)
-        object.__setattr__(self, "_prep_l3_ds", ds)
+        self.interim_l3_ds = hh.calc_wind_dir_and_speed(self.interim_l3_ds)
         return self
 
     def set_alt_dim(self, alt_dim="alt"):
@@ -961,11 +970,7 @@ class Sonde:
         self: Returns the sonde instance
         """
         self.qc.alt_dim = alt_dim
-        object.__setattr__(
-            self,
-            "alt_dim",
-            alt_dim,
-        )
+        self.alt_dim = alt_dim
         return self
 
     def replace_alt_dim(self, drop_nan=True):
@@ -986,7 +991,7 @@ class Sonde:
         - None: Returns None if the dataset is dropped due to NaN altitude values.
         """
         alt_dim = self.alt_dim
-        ds = self._interim_l2_ds.load()
+        ds = self.interim_l2_ds.load()
         alt = ds[alt_dim]
         if np.all(np.isnan(alt)):
             ds = self.qc.replace_alt_var(ds, alt_dim)
@@ -1005,7 +1010,7 @@ class Sonde:
                         f"No altitude values. Sonde {self.serial_id} from {self.flight_id} is dropped"
                     )
                     return None
-                object.__setattr__(self, "_interim_l2_ds", ds)
+                self.interim_l2_ds = ds
         return self
 
     def swap_alt_dimension(self):
@@ -1015,19 +1020,13 @@ class Sonde:
         This method swaps the 'time' dimension of the dataset with an alternative
         dimension specified by the `alt_dim` attribute of the object. It then loads
         the dataset with the new dimension configuration and updates the object's
-        internal dataset attribute `_prep_l3_ds`.
+        internal dataset attribute `interim_l3_ds`.
 
         Returns:
             self: The instance of the object with the updated dataset.
         """
         alt_dim = self.alt_dim
-        ds = (self._prep_l3_ds.swap_dims({"time": alt_dim})).load()
-
-        object.__setattr__(
-            self,
-            "_prep_l3_ds",
-            ds,
-        )
+        self.interim_l3_ds = (self.interim_l3_ds.swap_dims({"time": alt_dim})).load()
         return self
 
     def remove_non_mono_incr_alt(self):
@@ -1035,7 +1034,7 @@ class Sonde:
         This function removes the indices in the some height variable that are not monotonically increasing
         """
         alt_dim = self.alt_dim
-        ds = self._prep_l3_ds.load()
+        ds = self.interim_l3_ds.load()
         alt = ds[alt_dim]
 
         curr_alt = alt.isel(time=0)
@@ -1046,11 +1045,7 @@ class Sonde:
                 curr_alt = alt[i]
         ds[alt_dim] = alt
 
-        object.__setattr__(
-            self,
-            "_prep_l3_ds",
-            ds,
-        )
+        self.interim_l3_ds = ds
         return self
 
     def interpolate_alt(
@@ -1067,9 +1062,9 @@ class Sonde:
         """
         alt_dim = self.alt_dim
         interpolation_grid = np.arange(interp_start, interp_stop, interp_step)
-        ds = self._prep_l3_ds
+        ds = self.interim_l3_ds
 
-        if not (self._prep_l3_ds[alt_dim].diff(dim=alt_dim) < 0).any():
+        if not (ds[alt_dim].diff(dim=alt_dim) < 0).any():
             warnings.warn(
                 f"your altitude for sonde {self.serial_id
                 } on {self.launch_time} is not sorted."
@@ -1135,20 +1130,19 @@ class Sonde:
                 )
             ).drop_vars("time")
             count_dict.pop("time")
-            object.__setattr__(self, "_count_dict", count_dict)
+            self.count_dict = count_dict
 
         if p_log:
             interp_ds = interp_ds.assign(
                 p=(interp_ds.p.dims, np.exp(interp_ds.p.values), interp_ds.p.attrs)
             )
-
-        object.__setattr__(self, "_prep_l3_ds", interp_ds)
+        self.interim_l3_ds = interp_ds
         return self
 
     def get_N_m_values(self):
         alt_dim = self.alt_dim
-        count_dict = self._count_dict
-        prep_l3 = self._prep_l3_ds
+        count_dict = self.count_dict
+        prep_l3 = self.interim_l3_ds
 
         for variable, Nvar in count_dict.items():
             N_name = f"{variable}_N_qc"
@@ -1192,12 +1186,12 @@ class Sonde:
                     )
                 }
             )
-        object.__setattr__(self, "_prep_l3_ds", prep_l3)
+        self.interim_l3_ds = prep_l3
 
         return self
 
     def remove_N_m_duplicates(self):
-        ds = self._prep_l3_ds
+        ds = self.interim_l3_ds
         nm_vars = ["lat", "u", "p", "q", "theta"]
         if "lat in ds.variables":
             np.testing.assert_array_equal(
@@ -1234,13 +1228,12 @@ class Sonde:
                 }
             )
         )
-
-        object.__setattr__(self, "_prep_l3_ds", ds)
+        self.interim_l3_ds = ds
         return self
 
     def add_Nm_to_vars(self):
         self.remove_N_m_duplicates()
-        ds = self._prep_l3_ds
+        ds = self.interim_l3_ds
 
         essential_vars = ["u", "v", "q", "p", "theta", "lat", "lon"]
         mN_vars = ["gps", "gps", "q", "p", "theta", "gpspos", "gpspos"]
@@ -1248,17 +1241,16 @@ class Sonde:
         for essential_var, mNvar in zip(essential_vars, mN_vars):
             ds = hx.add_ancillary_var(ds, essential_var, mNvar + "_m_qc")
             ds = hx.add_ancillary_var(ds, essential_var, mNvar + "_N_qc")
-
-        object.__setattr__(self, "_prep_l3_ds", ds)
+        self.interim_l3_ds = ds
         return self
 
     def add_ids(self):
         """
-        add sonde_id, platform_id and flight_id to prep_l3_ds
+        add sonde_id, platform_id and flight_id to interim_l3_ds
         """
-        ds = self._prep_l3_ds
+        ds = self.interim_l3_ds
         source_ds = self.l2_ds
-        ds = ds.assign_coords(
+        self.interim_l3_ds = ds.assign_coords(
             {
                 "sonde_id": (
                     "sonde_id",
@@ -1277,7 +1269,6 @@ class Sonde:
                 ),
             }
         )
-        object.__setattr__(self, "_prep_l3_ds", ds)
         return self
 
     def add_attributes_as_var(self, essential_attrs=None):
@@ -1286,7 +1277,7 @@ class Sonde:
         adds all attributes as variables to avoid conflicts when concatenating because attributes are different
         (and not lose information)
         """
-        ds = self._prep_l3_ds
+        ds = self.interim_l3_ds
         l2_ds = self.l2_ds
         if essential_attrs is None:
             try:
@@ -1315,19 +1306,18 @@ class Sonde:
                 )
             )
         )
-        object.__setattr__(self, "attrs", ds.attrs.keys())
-        object.__setattr__(self, "_prep_l3_ds", ds)
+        self.attrs = ds.attrs.keys()
+        self.interim_l3_ds = ds
         return self
 
     def make_attr_coordinates(self):
-        ds = self._prep_l3_ds
+        ds = self.interim_l3_ds
         new_coords = {
             coord: ("sonde_id", np.reshape(ds[coord].values, (1,)), ds[coord].attrs)
             for coord in hh.l3_coords
             if coord in ds.variables
         }
-        ds = ds.assign_coords(new_coords)
-        object.__setattr__(self, "_prep_l3_ds", ds)
+        self.interim_l3_ds = ds.assign_coords(new_coords)
         return self
 
     def add_qc_to_interim_l3(self, keep=["sonde_qc"]):
@@ -1338,13 +1328,13 @@ class Sonde:
         elif isinstance(keep, str):
             keep = keep.split(",")
         keep = keep + ["sonde_id"]
-        ds_qc = self._interim_l2_ds[keep].expand_dims("sonde_id")
-        ds = xr.merge([self._prep_l3_ds, ds_qc])
-        object.__setattr__(self, "_prep_l3_ds", ds)
+        ds_qc = self.interim_l2_ds[keep].expand_dims("sonde_id")
+        self.interim_l3_ds = xr.merge([self.interim_l3_ds, ds_qc])
+
         return self
 
-    def make_prep_interim(self):
-        ds = self._prep_l3_ds
+    def add_globals_l3(self):
+        ds = self.interim_l3_ds
         if hasattr(self, "global_attrs"):
             ds = ds.assign_attrs(self.global_attrs)
         history = getattr(self, "history", "")
@@ -1353,13 +1343,13 @@ class Sonde:
             + datetime.now(timezone.utc).isoformat()
             + f" Level 3 processing with pydropsonde {__version__} \n"
         )
-        object.__setattr__(self, "history", history)
+        self.history = history
         ds = ds.assign_attrs({"history": history})
-        object.__setattr__(self, "_interim_l3_ds", ds)
+        self.interim_l3_ds = ds
         return self
 
     def save_interim_l3(self):
-        ds = self._interim_l3_ds
+        ds = self.interim_l3_ds
         if hasattr(self, "broken_sondes"):
             if self.serial_id in self.broken_sondes:
                 ds.attrs.update(
@@ -1376,7 +1366,7 @@ class Sonde:
         return self
 
     def add_expected_coords(self):
-        ds = self._interim_l3_ds
+        ds = self.interim_l3_ds
         missing_coords = set(hh.l3_coords.keys()) - set(ds.coords)
         for coord in missing_coords:
             ds = ds.assign_coords(
@@ -1388,8 +1378,7 @@ class Sonde:
                     )
                 }
             )
-
-        object.__setattr__(self, "_interim_l3_ds", ds)
+        self.interim_l3_ds = ds
         return self
 
 
@@ -1398,13 +1387,20 @@ class Gridded:
     sondes: dict
     global_attrs: dict
 
+    @property
+    def l3_ds(self):
+        return self._l3_ds
+
+    def set_l3_ds(self, ds):
+        self._l3_ds = ds
+
     def __post_init__(self):
         if self.global_attrs is None:
             self.global_attrs = {}
 
     def check_aspen_version(self):
         list_of_l2_hist = [
-            sonde._interim_l3_ds.attrs["history"].splitlines()[0]
+            sonde.interim_l3_ds.attrs["history"].splitlines()[0]
             for sonde in self.sondes.values()
         ]
         aspen_versions = [asp.split("Aspen ")[1] for asp in list_of_l2_hist]
@@ -1416,7 +1412,7 @@ class Gridded:
 
     def check_pydropsonde_version(self):
         list_of_l2_hist = [
-            sonde._interim_l3_ds.attrs["history"].splitlines()[1]
+            sonde.interim_l3_ds.attrs["history"].splitlines()[1]
             for sonde in self.sondes.values()
         ]
         pydrop_versions = [pydr.split("pydropsonde ")[-1] for pydr in list_of_l2_hist]
@@ -1427,7 +1423,7 @@ class Gridded:
         return self
 
     def add_history_to_ds(self):
-        first_sonde_history = list(self.sondes.values())[0]._interim_l3_ds.attrs[
+        first_sonde_history = list(self.sondes.values())[0].interim_l3_ds.attrs[
             "history"
         ]
         new_hist = ""
@@ -1461,7 +1457,7 @@ class Gridded:
         """
         if sortby is None:
             sortby = list(hh.l3_coords.keys())[0]
-        list_of_l2_ds = [sonde._interim_l3_ds for sonde in self.sondes.values()]
+        list_of_l2_ds = [sonde.interim_l3_ds for sonde in self.sondes.values()]
         try:
             ds = xr.concat(list_of_l2_ds, dim="sonde_id", join="exact").sortby(sortby)
         except AttributeError:
@@ -1483,7 +1479,7 @@ class Gridded:
 
         if hasattr(self, "global_attrs"):
             ds = ds.assign_attrs(self.global_attrs)
-        self._interim_l3_ds = ds
+        self.concat_sonde_ds = ds
         return self
 
     def get_all_attrs(self):
@@ -1534,7 +1530,7 @@ class Gridded:
 
         if l3_dir is None:
             l3_dir = self.l3_dir
-        ds = self._interim_l3_ds
+        ds = self.concat_sonde_ds
         history = getattr(self, "history", "")
         history = (
             history
@@ -1548,7 +1544,7 @@ class Gridded:
             ds.attrs.update({"broken_sondes": list(self.broken_sondes.keys())})
 
         hx.write_ds(
-            ds=self._interim_l3_ds,
+            ds=self.concat_sonde_ds,
             dir=l3_dir,
             filename=self.l3_filename,
             object_dim="sonde_id",
@@ -1558,9 +1554,9 @@ class Gridded:
 
     def add_l3_ds(self, l3_dir: str = None):
         if l3_dir is None:
-            self.l3_ds = self._interim_l3_ds.copy()
+            self.set_l3_ds(self.concat_sonde_ds.copy())
         else:
-            self.l3_ds = hx.open_dataset(l3_dir)
+            self.set_l3_ds(hx.open_dataset(l3_dir))
         return self
 
     def get_simple_circle_times_from_yaml(self, yaml_file: str = None):

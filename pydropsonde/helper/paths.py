@@ -167,7 +167,7 @@ class Flight:
                 )
                 launch_detect = "UGLY"
                 launch_time = "UNKNOWN"
-            Sondes[sonde_id] = Sonde(sonde_id, launch_time=launch_time)
+            Sondes[sonde_id] = Sonde(_serial_id=sonde_id, _launch_time=launch_time)
             Sondes[sonde_id].add_launch_detect(launch_detect)
             Sondes[sonde_id].add_flight_id(
                 self.flight_id,
