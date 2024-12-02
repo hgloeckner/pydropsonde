@@ -939,6 +939,22 @@ class Sonde:
         interim_l3_filename: str = None,
         skip=False,
     ):
+        """
+        sets interim level 3 directory and filename.
+        Checks if an interim level 3 file already exists and sets a cont attribute in the sonde
+        to skip level 2 to level 3 processing if so.
+
+        Parameters:
+        - interim_l3_dir (str, optional): The directory for interim Level 3 files.
+        Defaults to a modified version of the Level 2 directory.
+        - interim_l3_filename (str, optional): The filename for the interim Level 3
+        file. Defaults to a formatted string using `sonde_id` and `version`.
+        - skip (bool, optional): If True, skips checking for the file's existence.
+        Defaults to False.
+
+        Returns:
+        - self: The sonde instance with updated attributes.
+        """
         if interim_l3_dir is None:
             interim_l3_dir = self.l2_dir.replace("Level_2", "Level_3_interim").replace(
                 self.flight_id, ""
