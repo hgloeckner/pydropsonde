@@ -278,6 +278,20 @@ class Sonde:
         return self
 
     def add_aspen_history(self):
+        """
+        Append ASPEN processing history to the object's history attribute.
+
+        This method retrieves the ASPEN version and processing time from the `aspen_ds` attribute
+        of the sonde and appends a formatted history entry to the `history` attribute. The processing
+        time is expected to be in UTC format.
+
+        Returns:
+            self: The sonde object with updated history.
+
+        Raises:
+            AssertionError: If the processing time does not end with "UTC".
+        """
+
         history = getattr(self, "history", "")
         if hasattr(self.aspen_ds, "AspenVersion"):
             aspen_version = self.aspen_ds.AspenVersion
