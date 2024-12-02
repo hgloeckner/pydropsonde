@@ -1773,6 +1773,24 @@ class Gridded:
         return self
 
     def get_l3_dir(self, l3_dir: str = None):
+        """
+        Determines the Level 3 directory for the Gridded object.
+
+        Parameters
+        ----------
+        l3_dir : str, optional
+            The Level 3 directory to set.
+
+        Raises
+        ------
+        ValueError
+            If no sondes and no Level 3 directory are provided.
+
+        Returns
+        -------
+        self : Gridded
+            Returns the Gridded object with the Level 3 directory set.
+        """
         if l3_dir:
             self.l3_dir = l3_dir
         elif self.sondes is not None:
@@ -1787,6 +1805,19 @@ class Gridded:
         return self
 
     def get_l3_filename(self, l3_filename: str = None):
+        """
+        Sets the Level 3 filename for the Gridded object.
+
+        Parameters
+        ----------
+        l3_filename : str, optional
+            The Level 3 filename to set.
+
+        Returns
+        -------
+        self : Gridded
+            Returns the Gridded object with the Level 3 filename set.
+        """
         if l3_filename is None:
             l3_filename = hh.l3_filename
         else:
@@ -1836,6 +1867,19 @@ class Gridded:
         return self
 
     def add_l3_ds(self, l3_dir: str = None):
+        """
+        Adds the Level 3 dataset to the Gridded object.
+
+        Parameters
+        ----------
+        l3_dir : str, optional
+            The directory to load the Level 3 dataset from.
+
+        Returns
+        -------
+        self : Gridded
+            Returns the Gridded object with the Level 3 dataset added.
+        """
         if l3_dir is None:
             self.l3_ds = self._interim_l3_ds.copy()
         else:
