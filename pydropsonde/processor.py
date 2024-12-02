@@ -158,6 +158,17 @@ class Sonde:
         object.__setattr__(self, "l2_dir", l2_dir)
 
     def add_broken(self, broken_sondes: dict):
+        """
+        Assigns a dictionary of broken sondes to this sonde.
+
+        This method sets the 'broken_sondes' attribute of this sonde
+        to the provided dictionary of broken sondes.
+
+        Parameters:
+        - broken_sondes (dict): A dictionary containing information about
+        broken sondes, where keys are identifiers and values are details
+        about the broken sondes.
+        """
         object.__setattr__(self, "broken_sondes", broken_sondes)
 
     def run_aspen(self, path_to_postaspenfile: str = None) -> None:
