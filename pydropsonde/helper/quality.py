@@ -120,7 +120,6 @@ class QualityControl:
             warnings.warn(
                 f"variables for which frequency is given do not match the qc_variables. Continue for the intersection  {var_keys}"
             )
-
         for variable in var_keys:
             dataset = ds[variable]
             sampling_frequency = variable_dict[variable]
@@ -323,12 +322,12 @@ class QualityControl:
         for i, (key, value) in enumerate(
             self.qc_by_var.get(variable).get("qc_flags").items()
         ):
-            qc_val = qc_val + (2**i) * np.byte(value)
+            qc_val = qc_val + (2**i) * np.byte(not value)
             keys.append(key.split("_", 1)[1])
         if qc_val == 0:
-            qc_status = "BAD"
-        elif qc_val == 2 ** (i + 1) - 1:
             qc_status = "GOOD"
+        elif qc_val == 2 ** (i + 1) - 1:
+            qc_status = "BAD"
         else:
             qc_status = "UGLY"
         attrs = dict(
@@ -336,6 +335,7 @@ class QualityControl:
             standard_name="status_flag",
             flag_masks=", ".join([f"{2**x}b" for x in range(i + 1)]),
             flag_meanings=", ".join(keys),
+            description="if non-zero, this sonde should be used with care.",
             qc_status=qc_status,
         )
         return np.byte(qc_val), attrs
@@ -520,6 +520,7 @@ class QualityControl:
                 long_name="aggregated quality flag for sonde",
                 flag_values="0 1 2",
                 flag_meaning="BAD GOOD UGLY",
+                description="if not 1 some quality control has not been passed. Handle with care.",
             )
         )
         ds = hx.add_ancillary_var(ds, "sonde_id", qc_name)
