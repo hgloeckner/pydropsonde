@@ -15,6 +15,9 @@ class Circle:
     """
 
     circle_ds: str
+    clon: float
+    clat: float
+    crad: float
     flight_id: str
     platform_id: str
     segment_id: str
@@ -41,64 +44,66 @@ class Circle:
             return None  # or some default value like [], np.array([]), etc.
 
         x_coor = (
-            self.circle_ds.lon * 111.320 * np.cos(np.radians(self.circle_ds.lat)) * 1000
+            self.circle_ds.lon * 111.32 * np.cos(np.radians(self.circle_ds.lat)) * 1000
         )
         y_coor = self.circle_ds.lat * 110.54 * 1000
 
         # converting from lat, lon to coordinates in metre from (0,0).
+        if self.clat is None:
+            c_xc = np.full(np.size(x_coor, 1), np.nan)
+            c_yc = np.full(np.size(x_coor, 1), np.nan)
+            c_r = np.full(np.size(x_coor, 1), np.nan)
 
-        c_xc = np.full(np.size(x_coor, 1), np.nan)
-        c_yc = np.full(np.size(x_coor, 1), np.nan)
-        c_r = np.full(np.size(x_coor, 1), np.nan)
+            for j in range(np.size(x_coor, 1)):
+                a = ~np.isnan(x_coor.values[:, j])
+                if a.sum() > 4:
+                    c_xc[j], c_yc[j], c_r[j], _ = cf.least_squares_circle(
+                        [
+                            (x, y)
+                            for x, y in zip(x_coor.values[:, j], y_coor.values[:, j])
+                            if ~np.isnan(x)
+                        ]
+                    )
 
-        for j in range(np.size(x_coor, 1)):
-            a = ~np.isnan(x_coor.values[:, j])
-            if a.sum() > 4:
-                c_xc[j], c_yc[j], c_r[j], _ = cf.least_squares_circle(
-                    [
-                        (x, y)
-                        for x, y in zip(x_coor.values[:, j], y_coor.values[:, j])
-                        if ~np.isnan(x)
-                    ]
-                )
+            self.clat = np.nanmean(c_yc) / (110.54 * 1000)
+            self.clon = np.nanmean(c_xc) / (
+                111.32 * np.cos(np.radians(self.clat)) * 1000
+            )
 
-        circle_y = np.nanmean(c_yc) / (110.54 * 1000)
-        circle_x = np.nanmean(c_xc) / (111.320 * np.cos(np.radians(circle_y)) * 1000)
+            self.crad = np.nanmean(c_r)
+            attr_descr = "fitted circle for all regressed sondes in circle (mean)"
+        else:
+            attr_descr = "circle from flight segmentation"
 
-        circle_diameter = np.nanmean(c_r) * 2
+        yc = self.clat * 110.54 * 1000
+        xc = self.clon * (111.32 * np.cos(np.radians(self.clat)) * 1000)
 
-        xc = [None] * len(x_coor.T)
-        yc = [None] * len(y_coor.T)
-
-        xc = np.mean(x_coor, axis=0)
-        yc = np.mean(y_coor, axis=0)
-
-        delta_x = x_coor - xc  # *111*1000 # difference of sonde long from mean long
-        delta_y = y_coor - yc  # *111*1000 # difference of sonde lat from mean lat
+        delta_x = x_coor - xc
+        delta_y = y_coor - yc
 
         delta_x_attrs = {
             "long_name": "x",
-            "description": "Difference of sonde longitude from mean longitude",
-            "units": self.circle_ds.lon.attrs["units"],
+            "description": "Distance of sonde longitude to mean circle longitude",
+            "units": "m",
         }
         delta_y_attrs = {
             "long_name": "y",
-            "description": "Difference of sonde latitude from mean latitude",
-            "units": self.circle_ds.lat.attrs["units"],
+            "description": "Distance of sonde latitude to mean circle latitude",
+            "units": "m",
         }
-        circle_diameter_attrs = {
-            "long_name": "circle_diameter",
-            "description": "Diameter of fitted circle for all regressed sondes in circle",
+        circle_radius_attrs = {
+            "long_name": "circle_radius",
+            "description": f"Radius of {attr_descr}",
             "units": "m",
         }
         circle_lon_attrs = {
             "long_name": "circle_lon",
-            "description": "Longitude of fitted circle for all regressed sondes in circle",
+            "description": f"Longitude of {attr_descr}",
             "units": self.circle_ds.lon.attrs["units"],
         }
         circle_lat_attrs = {
             "long_name": "circle_lat",
-            "description": "Latitude of fitted circle for all regressed sondes in circle",
+            "description": f"Latitude of {attr_descr}",
             "units": self.circle_ds.lat.attrs["units"],
         }
         circle_altitude_attrs = {
@@ -122,9 +127,9 @@ class Circle:
                 self.circle_ds["launch_time"].mean().values,
                 circle_time_attrs,
             ),
-            circle_lon=([], circle_x, circle_lon_attrs),
-            circle_lat=([], circle_y, circle_lat_attrs),
-            circle_diameter=([], circle_diameter, circle_diameter_attrs),
+            circle_lon=([], self.clon, circle_lon_attrs),
+            circle_lat=([], self.clat, circle_lat_attrs),
+            circle_radius=([], self.crad, circle_radius_attrs),
             x=(["sonde_id", self.alt_dim], delta_x.values, delta_x_attrs),
             y=(["sonde_id", self.alt_dim], delta_y.values, delta_y_attrs),
         )

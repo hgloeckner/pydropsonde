@@ -266,6 +266,9 @@ def create_and_populate_circle_object(
         )
         circle = Circle(
             circle_ds=circle_ds,
+            clon=segment.get("clon"),
+            clat=segment.get("clat"),
+            crad=segment.get("radius"),
             flight_id=segment["flight_id"],
             platform_id=segment["platform_id"],
             segment_id=segment["segment_id"],
