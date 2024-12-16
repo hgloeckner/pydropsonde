@@ -324,7 +324,34 @@ class Circle:
             "long_name": "Area-averaged atmospheric pressure velocity (omega)",
             "units": "hPa hr-1",
         }
-        self.circle_ds = ds.assign(
-            dict(omega_p=(ds.div.dims, omega.values, omega_attrs))
-        )
+        self.circle_ds = ds.assign(dict(omega=(ds.div.dims, omega.values, omega_attrs)))
+        return self
+
+    def add_wvel(self):
+        """
+        Calculate vertical velocity as
+        - int diff dz
+
+        This calculates the vertical velocity from omega
+
+        Returns:
+            self: circle object with updated circle_ds
+        """
+        ds = self.circle_ds
+        alt_dim = self.alt_dim
+        div = ds.div.where(~np.isnan(ds.div), drop=True).sortby(alt_dim)
+        zero_vel = xr.DataArray(data=[0], dims=alt_dim, coords={alt_dim: [0]})
+
+        height = xr.concat([zero_vel, div[alt_dim]], dim=alt_dim)
+        height_diff = height.diff(dim=alt_dim)
+
+        del_w = -div * height_diff.values
+
+        w_vel = del_w.cumsum(dim=alt_dim)
+        wvel_attrs = {
+            "standard_name": "upward_air_velocity",
+            "long_name": "Area-averaged atmospheric vertical velocity",
+            "units": "m s-1",
+        }
+        self.circle_ds = ds.assign(dict(wvel=(ds.omega.dims, w_vel, wvel_attrs)))
         return self
