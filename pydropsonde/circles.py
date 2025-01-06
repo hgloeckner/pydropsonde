@@ -3,6 +3,7 @@ import numpy as np
 import xarray as xr
 import tqdm
 import circle_fit as cf
+from scipy.interpolate import interp1d
 import pydropsonde.helper.physics as hp
 
 _no_default = object()
@@ -142,6 +143,71 @@ class Circle:
         )
 
         self.circle_ds = self.circle_ds.assign(new_vars)
+        return self
+
+    def filter_qc(self):
+        # this does not work as it broadcasts
+        circle_ds = self.circle_ds
+        self.circle_ds = circle_ds.where(circle_ds.gps_N_qc > 0).where(
+            circle_ds.sonde_qc == 1, drop=True
+        )
+        return self
+
+    def remove_values(self, n_gap=5):
+        ds = self.circle_ds
+        alt_dim = self.alt_dim
+        alt_size = ds.sizes[alt_dim]
+        alt_mask = np.full(alt_size, False)
+        alt_mask[::n_gap] = True
+        expanded_mask = xr.DataArray(alt_mask, dims=[alt_dim]).broadcast_like(ds)
+        self.circle_ds = ds.where(expanded_mask)
+        return self
+
+    @staticmethod
+    def interp_na_np(np_arr, xvals, method="cubic"):
+        f = interp1d(
+            xvals[~np.isnan(np_arr)],
+            np_arr[~np.isnan(np_arr)],
+            kind=method,
+            bounds_error=False,
+            fill_value=np.nan,
+        )
+        return f(xvals)
+
+    def interp_na_xr(self, var, method):
+        ds = self.circle_ds
+        alt_dim = self.alt_dim
+        return xr.apply_ufunc(
+            self.__class__.interp_na_np,
+            ds[var],
+            ds.gpsalt,
+            kwargs={"method": method},
+            input_core_dims=[(alt_dim,), (alt_dim,)],
+            output_core_dims=[(alt_dim,)],
+            vectorize=True,
+            keep_attrs=True,
+        )
+
+    def apply_interp_na(self, method="cubic", x_method="linear"):
+        variables = ["u", "v", "q", "ta", "p"]
+        dss = {}
+        ds = self.circle_ds
+        ds["p"] = np.log(ds["p"])
+        if method is not None:
+            print(method)
+            try:
+                ds_x = self.interp_na_xr("x", method=x_method)
+            except ValueError:
+                print(ds)
+                return None
+            ds_y = self.interp_na_xr("y", method=x_method)
+
+            for var in tqdm.tqdm(variables):
+                dss[var] = self.interp_na_xr(var, method=method)
+
+            ds = ds.assign({**dss, "x": ds_x, "y": ds_y})
+        ds["p"] = np.exp(ds["p"])
+        self.circle_ds = ds
         return self
 
     @staticmethod
@@ -353,5 +419,5 @@ class Circle:
             "long_name": "Area-averaged atmospheric vertical velocity",
             "units": "m s-1",
         }
-        self.circle_ds = ds.assign(dict(wvel=(ds.omega.dims, w_vel, wvel_attrs)))
+        self.circle_ds = ds.assign(dict(wvel=(ds.omega.dims, w_vel.values, wvel_attrs)))
         return self
