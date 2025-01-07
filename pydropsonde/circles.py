@@ -155,7 +155,8 @@ class Circle:
 
         return self
 
-    def remove_values(self, n_gap=5):
+    def remove_values(self, n_gap=3):
+        n_gap = int(n_gap)
         ds = self.circle_ds
         alt_dim = self.alt_dim
         alt_size = ds.sizes[alt_dim]
