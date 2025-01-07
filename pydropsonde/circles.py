@@ -148,9 +148,11 @@ class Circle:
     def filter_qc(self):
         # this does not work as it broadcasts
         circle_ds = self.circle_ds
-        self.circle_ds = circle_ds.where(circle_ds.gps_N_qc > 0).where(
-            circle_ds.sonde_qc == 1, drop=True
-        )
+
+        circle_ds = circle_ds.where(circle_ds.gps_N_qc > 0)
+
+        self.circle_ds = circle_ds.where(circle_ds.sonde_qc == 1)
+
         return self
 
     def remove_values(self, n_gap=5):
@@ -165,14 +167,17 @@ class Circle:
 
     @staticmethod
     def interp_na_np(np_arr, xvals, method="cubic"):
-        f = interp1d(
-            xvals[~np.isnan(np_arr)],
-            np_arr[~np.isnan(np_arr)],
-            kind=method,
-            bounds_error=False,
-            fill_value=np.nan,
-        )
-        return f(xvals)
+        try:
+            f = interp1d(
+                xvals[~np.isnan(np_arr)],
+                np_arr[~np.isnan(np_arr)],
+                kind=method,
+                bounds_error=False,
+                fill_value=np.nan,
+            )
+            return f(xvals)
+        except ValueError:
+            return np.full(xvals.shape, np.nan)
 
     def interp_na_xr(self, var, method):
         ds = self.circle_ds
@@ -195,11 +200,7 @@ class Circle:
         ds["p"] = np.log(ds["p"])
         if method is not None:
             print(method)
-            try:
-                ds_x = self.interp_na_xr("x", method=x_method)
-            except ValueError:
-                print(ds)
-                return None
+            ds_x = self.interp_na_xr("x", method=x_method)
             ds_y = self.interp_na_xr("y", method=x_method)
 
             for var in tqdm.tqdm(variables):
@@ -220,7 +221,6 @@ class Circle:
 
         a_inv = np.linalg.pinv(a)
         intercept, dux, duy = np.einsum("...rm,...m->r...", a_inv, u_cal)
-
         return intercept, dux, duy
 
     def fit2d_xr(self, x, y, u, sonde_dim="sonde_id"):
@@ -390,7 +390,9 @@ class Circle:
             "long_name": "Area-averaged atmospheric pressure velocity (omega)",
             "units": "hPa hr-1",
         }
-        self.circle_ds = ds.assign(dict(omega=(ds.div.dims, omega.values, omega_attrs)))
+        self.circle_ds = ds.assign(
+            dict(omega=(ds.div.dims, omega.broadcast_like(ds.div).values, omega_attrs))
+        )
         return self
 
     def add_wvel(self):
@@ -419,5 +421,13 @@ class Circle:
             "long_name": "Area-averaged atmospheric vertical velocity",
             "units": "m s-1",
         }
-        self.circle_ds = ds.assign(dict(wvel=(ds.omega.dims, w_vel.values, wvel_attrs)))
+        self.circle_ds = ds.assign(
+            dict(
+                wvel=(
+                    ds.omega.dims,
+                    w_vel.broadcast_like(ds.div).values,
+                    wvel_attrs,
+                )
+            )
+        )
         return self
