@@ -1780,7 +1780,6 @@ class Gridded:
 
         for circle_id, circle in self.circles.items():
             circle_ds = circle.circle_ds
-            print(circle_ds)
 
             if circle_id not in circle_ids:
                 circle_ids.append(circle_id)
@@ -1823,11 +1822,18 @@ class Gridded:
 
             elif len(datasets[0][1].dims) == 1:
                 if alt_dim in datasets[0][1].dims:  # (alt,)
-                    final_vars[var_name] = xr.DataArray(
-                        datasets[0][1].values,
-                        dims=[alt_dim],
-                        coords={alt_dim: altitudes},
-                    )
+                    aligned_data = []
+                    for circle_id, var_data in datasets:
+                        # Create a DataArray with an explicit "circle_id" dimension
+                        reindexed_data = xr.DataArray(
+                            var_data.values,
+                            dims=[alt_dim],
+                            coords={alt_dim: var_data[alt_dim].values},
+                        ).expand_dims(circle_id=[circle_id])
+                        aligned_data.append(reindexed_data)
+                    
+                    # Concatenate along "circle_id"
+                    final_vars[var_name] = xr.concat(aligned_data, dim="circle_id")
                 else:
                     aligned_data = []
                     for circle_id, var_data in datasets:

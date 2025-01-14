@@ -592,7 +592,7 @@ pipeline = {
     "get_circles": {
         "intake": "gridded",
         "apply": apply_method_to_dataset,
-        "functions": ["add_l3_ds", "get_circle_times_from_segmentation"],
+        "functions": ["add_l3_ds", "get_simple_circle_times_from_yaml"],
         "output": "gridded",
         "comment": "get circle times and add to gridded",
     },
