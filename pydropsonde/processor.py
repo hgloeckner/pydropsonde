@@ -1067,8 +1067,7 @@ class Sonde:
         self : object
             Returns the sonde object with integrated water vapour added to the interim l3 dataset.
         """
-
-        self.interim_l3_ds = hh.calc_iwv(self.interim_l3_ds)
+        self.interim_l3_ds = hh.calc_iwv(self.interim_l3_ds, qc_var=["rh_qc", "ta_qc"])
 
         return self
 

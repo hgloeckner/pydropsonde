@@ -316,7 +316,7 @@ def calc_rh_from_q(ds):
     return ds
 
 
-def calc_iwv(ds, sonde_dim="sonde_id", alt_dim="alt"):
+def calc_iwv(ds, sonde_dim="sonde_id", alt_dim="alt", qc_var=None):
     """
     Input :
 
@@ -328,18 +328,24 @@ def calc_iwv(ds, sonde_dim="sonde_id", alt_dim="alt"):
 
     Function to estimate integrated water vapor in the given dataset.
     """
-    pressure = ds.p.values
-    temperature = ds.ta.values
-    q = ds.q.values
-    alt = ds[alt_dim].values
+    if qc_var is not None:
+        qc_vals = [ds[var].values for var in qc_var]
+    if (qc_var is None) or (qc_vals.count(0) == len(qc_vals)):
+        pressure = ds.p.values
+        temperature = ds.ta.values
+        q = ds.q.values
+        alt = ds[alt_dim].values
 
-    mask_p = ~np.isnan(pressure)
-    mask_t = ~np.isnan(temperature)
-    mask_q = ~np.isnan(q)
-    mask = mask_p & mask_t & mask_q
-    iwv = physics.integrate_water_vapor(
-        q=q[mask], p=pressure[mask], T=temperature[mask], z=alt[mask]
-    )
+        mask_p = ~np.isnan(pressure)
+        mask_t = ~np.isnan(temperature)
+        mask_q = ~np.isnan(q)
+        mask = mask_p & mask_t & mask_q
+        iwv = physics.integrate_water_vapor(
+            q=q[mask], p=pressure[mask], T=temperature[mask], z=alt[mask]
+        )
+
+    else:
+        iwv = np.nan
     ds_iwv = xr.DataArray([iwv], dims=[sonde_dim], coords={})
     ds_iwv.name = "iwv"
     ds_iwv.attrs = dict(
