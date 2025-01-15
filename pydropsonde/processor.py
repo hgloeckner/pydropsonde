@@ -1188,6 +1188,7 @@ class Sonde:
         interp_stop=14600,
         interp_step=10,
         max_gap_fill: int = 50,
+        interpolate=False,
         p_log=True,
         method: str = "bin",
     ):
@@ -1247,13 +1248,16 @@ class Sonde:
             interp_ds = xr.Dataset(mean_ds)
 
             # interpolate missing values up to max_gap_fill meters
-            interp_ds = (
-                interp_ds.transpose()
-                .interpolate_na(
-                    dim=f"{alt_dim}_bin", max_gap=max_gap_fill, use_coordinate=True
+            if interpolate:
+                interp_ds = (
+                    interp_ds.transpose()
+                    .interpolate_na(
+                        dim=f"{alt_dim}_bin", max_gap=max_gap_fill, use_coordinate=True
+                    )
+                    .rename({f"{alt_dim}_bin": alt_dim})
                 )
-                .rename({f"{alt_dim}_bin": alt_dim})
-            )
+            else:
+                interp_ds = interp_ds.rename({f"{alt_dim}_bin": alt_dim})
             interp_ds[alt_dim].attrs.update(ds[alt_dim].attrs)
             time_type = ds["time"].values.dtype
             interp_ds = interp_ds.assign(
@@ -1386,7 +1390,7 @@ class Sonde:
         self.interim_l3_ds = ds
         return self
 
-    def add_Nm_to_vars(self):
+    def add_Nm_to_vars(self, add_m=False):
         """
         Adds ancillary N and m quality control variables to essential variables in the internal dataset.
 
@@ -1403,7 +1407,10 @@ class Sonde:
         mN_vars = ["gps", "gps", "q", "p", "theta", "gpspos", "gpspos"]
 
         for essential_var, mNvar in zip(essential_vars, mN_vars):
-            ds = hx.add_ancillary_var(ds, essential_var, mNvar + "_m_qc")
+            if add_m:
+                ds = hx.add_ancillary_var(ds, essential_var, mNvar + "_m_qc")
+            else:
+                ds = ds.drop_vars([f"{mNvar}_m_qc"], errors="ignore")
             ds = hx.add_ancillary_var(ds, essential_var, mNvar + "_N_qc")
         self.interim_l3_ds = ds
         return self
