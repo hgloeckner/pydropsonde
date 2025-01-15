@@ -1504,17 +1504,40 @@ class Sonde:
         Returns:
             self: The instance with updated `interim_l3_ds` including quality control flags.
         """
-        if keep is None:
-            keep = []
-        elif keep == "all":
+        ds = self.interim_l3_ds
+        if keep == "all":
             keep = [f"{var}_qc" for var in list(self.qc.qc_by_var.keys())] + list(
                 self.qc.qc_details.keys()
             )
-        elif isinstance(keep, str):
-            keep = keep.split(",")
-        keep = keep + ["sonde_id"]
+        else:
+            for var in ds.variables:
+                if var != "sonde_id":
+                    ds[var].attrs.pop("ancillary_variables", None)
+            if keep is None:
+                keep = []
+            elif keep == "var_flags":
+                keep = [f"{var}_qc" for var in list(self.qc.qc_by_var.keys())] + [
+                    "sonde_qc"
+                ]
+                for var in self.qc.qc_by_var.keys():
+                    ds = hx.add_ancillary_var(ds, var, var + "_qc")
+                if (not np.isin("q", self.qc.qc_vars)) and np.isin(
+                    "rh", self.qc.qc_vars
+                ):
+                    ds = hx.add_ancillary_var(ds, "q", "rh_qc")
+                if (not np.isin("theta", self.qc.qc_vars)) and np.isin(
+                    "ta", self.qc.qc_vars
+                ):
+                    ds = hx.add_ancillary_var(ds, "theta", "ta_qc")
+
+            else:
+                warnings.warn(
+                    "your keep argument for the qc flags in level 3 is not valid, no qc added"
+                )
+                keep = []
+        keep = keep + ["sonde_qc"]
         ds_qc = self.interim_l2_ds[keep].expand_dims("sonde_id")
-        self.interim_l3_ds = xr.merge([self.interim_l3_ds, ds_qc])
+        self.interim_l3_ds = xr.merge([ds, ds_qc])
 
         return self
 
