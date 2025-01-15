@@ -371,19 +371,21 @@ class QualityControl:
             )
         return self.qc_by_var.get(variable).get("qc_details"), attrs
 
-    def add_variable_flags_to_ds(self, ds, variable, details=True):
+    def add_variable_flags_to_ds(self, ds, variable, add_to=None, details=True):
+        if add_to is None:
+            add_to = variable
         name = f"{variable}_qc"
         value, attrs = self.get_byte_array(variable)
         ds = ds.assign({name: value})
         ds[name].attrs.update(attrs)
-        ds = hx.add_ancillary_var(ds, variable, name)
+        ds = hx.add_ancillary_var(ds, add_to, name)
         # get detail
         if details:
             qc_dict, attrs = self.get_details(variable)
             for key in list(qc_dict.keys()):
                 ds = ds.assign({key: qc_dict.get(key)})
                 ds[key].attrs.update(attrs.get(key))
-                ds = hx.add_ancillary_var(ds, variable, key)
+                ds = hx.add_ancillary_var(ds, add_to, key)
 
         return ds
 
