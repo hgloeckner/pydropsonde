@@ -310,7 +310,7 @@ def calc_rh_from_q(ds):
             standard_name="relative_humidity",
             long_name="relative humidity",
             units="1",
-            method=f"recalculated from q following {es_name}",
+            method=f"recalculated from q following {es_name} after interpolation",
         )
     ds = ds.assign(rh=(ds.q.dims, rh, rh_attrs))
 
@@ -375,6 +375,7 @@ def calc_theta_from_T(ds):
             long_name="potential temperature",
             units="kelvin",
         )
+    theta_attrs.update(dict(method="calculated from measured ta and p"))
     ds = ds.assign(theta=(ds.ta.dims, theta, theta_attrs))
 
     return ds
@@ -403,6 +404,8 @@ def calc_T_from_theta(ds):
             long_name="air temperature",
             units="K",
         )
+
+    t_attrs.update(dict(method="recalculated from theta and p after interpolation"))
     ds = ds.assign(ta=(ds.theta.dims, ta, t_attrs))
     return ds
 
