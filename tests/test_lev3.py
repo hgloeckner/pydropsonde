@@ -139,6 +139,7 @@ class TestGroup:
             interp_step=10,
             max_gap_fill=int(20),
             p_log=True,
+            interpolate=True,
             method="bin",
         )
 
