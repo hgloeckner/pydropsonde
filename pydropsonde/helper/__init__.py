@@ -329,7 +329,9 @@ def calc_iwv(ds, sonde_dim="sonde_id", alt_dim="alt", qc_var=None):
 
     Function to estimate integrated water vapor in the given dataset.
     """
-    if (qc_var is None) or (ds[qc_var].values == 0):
+    if qc_var is not None:
+        qc_vals = [ds[var].values for var in qc_var]
+    if (qc_var is None) or (qc_vals.count(0) == len(qc_vals)):
         pressure = ds.p.values
         temperature = ds.ta.values
         q = ds.q.values
