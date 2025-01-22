@@ -1754,6 +1754,13 @@ class Gridded:
         self.concat_sonde_ds = ds
         return self
 
+    def add_circles(self, circles: dict):
+        """
+        Add a dictionary of circles to the Gridded object.
+        """
+        self.circles = circles
+        return self
+
     def concat_circles(self, sortby=None):
         if sortby is None:
             sortby = list(hh.l4_coords.keys())[0]
@@ -1831,7 +1838,7 @@ class Gridded:
                             coords={alt_dim: var_data[alt_dim].values},
                         ).expand_dims(circle_id=[circle_id])
                         aligned_data.append(reindexed_data)
-                    
+
                     # Concatenate along "circle_id"
                     final_vars[var_name] = xr.concat(aligned_data, dim="circle_id")
                 else:
@@ -2048,12 +2055,7 @@ class Gridded:
         if l4_dir:
             self.l4_dir = l4_dir
         elif self.circles is not None:
-            self.l4_dir = (
-                list(self.circles.values())[0]
-                .l2_dir.replace("Level_2", "Level_4")
-                .replace(list(self.circles.values())[0].flight_id, "")
-                .replace(list(self.circles.values())[0].platform_id, "")
-            )
+            self.l4_dir = self.l3_dir.replace("Level_3", "Level_4")
         else:
             raise ValueError("No circles and no l4 directory given, cannot continue")
         return self
