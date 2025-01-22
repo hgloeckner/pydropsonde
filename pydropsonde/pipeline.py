@@ -267,17 +267,18 @@ def create_and_populate_circle_object(
             print(f"No data for segment {segment["segment_id"]}")
 
         else:
-            circle = Circle(
-                circle_ds=circle_ds,
-                flight_id=segment["flight_id"],
-                platform_id=segment["platform_id"],
-                segment_id=segment["segment_id"],
-                alt_dim=gridded.alt_dim,
-                clon=segment.get("clon"),
-                clat=segment.get("clat"),
-                crad=segment.get("radius"),
-            )
-            circles[segment["segment_id"]] = circle
+            if circle_ds and circle_ds.launch_time.size > 0:
+                circle = Circle(
+                    circle_ds=circle_ds,
+                    flight_id=segment["flight_id"],
+                    platform_id=segment["platform_id"],
+                    segment_id=segment["segment_id"],
+                    alt_dim=gridded.alt_dim,
+                    clon=segment.get("clon"),
+                    clat=segment.get("clat"),
+                    crad=segment.get("radius"),
+                )
+                circles[segment["segment_id"]] = circle
 
     gridded.circles = circles
 
@@ -580,7 +581,7 @@ pipeline = {
     "get_circles": {
         "intake": "gridded",
         "apply": apply_method_to_dataset,
-        "functions": ["add_l3_ds", "get_simple_circle_times_from_yaml"],
+        "functions": ["add_l3_ds", "get_circle_times_from_segmentation"],
         "output": "gridded",
         "comment": "get circle times and add to gridded",
     },
