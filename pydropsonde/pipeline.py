@@ -542,7 +542,6 @@ pipeline = {
             "remove_non_mono_incr_alt",
             "swap_alt_dimension",
             "interpolate_alt",
-            "get_N_m_values",
             "add_Nm_to_vars",
             "recalc_rh_and_ta",
             "add_iwv",
