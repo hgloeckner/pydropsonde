@@ -157,11 +157,16 @@ class TestGroup:
         print(new_sonde.interim_l3_ds)
 
         assert not np.any(np.abs(result_ds.p - new_sonde.interim_l3_ds.p) > 1e-6)
-        assert result_ds.drop_vars("p").equals(new_sonde.interim_l3_ds.drop_vars("p"))
+        assert result_ds.drop_vars("p").equals(
+            new_sonde.interim_l3_ds.drop_vars(
+                ["p", "q_N_qc", "p_N_qc", "q_m_qc", "p_m_qc"]
+            )
+        )
         self.interp_sonde = new_sonde
 
     def test_N_m(self, sonde_interp, test_input, expected):
-        new_sonde = self.interp_sonde.get_N_m_values()
+        new_sonde = self.interp_sonde
         print(new_sonde.interim_l3_ds)
+        print(expected["Nq"])
         assert np.all(new_sonde.interim_l3_ds["q_N_qc"].values == expected["Nq"])
         assert np.all(new_sonde.interim_l3_ds["q_m_qc"].values == expected["mq"])
