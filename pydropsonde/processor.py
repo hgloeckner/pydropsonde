@@ -1490,7 +1490,7 @@ class Sonde:
         self.interim_l3_ds = ds.assign_coords(new_coords)
         return self
 
-    def add_qc_to_interim_l3(self, keep=["sonde_qc"]):
+    def add_qc_to_interim_l3(self, keep=None):
         """
         Add quality control flags to the interim Level 3 dataset.
 
