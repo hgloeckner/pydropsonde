@@ -41,8 +41,8 @@ def qc():
 
 @pytest.fixture
 def qc_vars(qc):
-    qc.set_qc_variables(["q", "p", "rh"])
-    assert qc.qc_vars == ["q", "p", "rh"]
+    qc.set_qc_variables({"q": "m s-1", "p": "Pa", "rh": "1"})
+    assert qc.qc_vars == {"q": "m s-1", "p": "Pa", "rh": "1"}
     return qc
 
 
@@ -113,12 +113,12 @@ def test_add_variable_flag_to_ds(qc_vars, varname, output):
 @pytest.mark.parametrize(
     "variables,output",
     [
-        (["p"], 0),  # GOOD
-        (["q", "p"], 2),  # UGLY
-        (["q"], 1),  # BAD
-        (["rh"], 2),  # UGLY
-        (["rh", "q"], 2),  # UGLY
-        (["rh", "p"], 2),  # UGLY
+        ({"p": "Pa"}, 0),  # GOOD
+        ({"q": "1", "p": "Pa"}, 2),  # UGLY
+        ({"q": "1"}, 1),  # BAD
+        ({"rh": "1"}, 2),  # UGLY
+        ({"rh": "1", "q": "1"}, 2),  # UGLY
+        ({"rh": "1", "p": "1"}, 2),  # UGLY
     ],
 )
 def test_sonde_qc(qc_vars, variables, output):

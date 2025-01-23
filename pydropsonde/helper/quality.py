@@ -12,15 +12,22 @@ class QualityControl:
     def __init__(
         self,
     ) -> None:
-        self.qc_vars = []
+        self.qc_vars = {}
         self.qc_flags = {}
         self.qc_details = {}
         self.qc_by_var = {}
         self.alt_dim = "time"
 
     def set_qc_variables(self, qc_variables):
-        self.qc_vars = self.qc_vars + list(qc_variables)
-        for variable in self.qc_vars:
+        """
+        set qc variables
+        Parameters
+        ----------
+        qc_variables : dictionary of the form {<var>:<unit>}
+        """
+        self.qc_vars.update(qc_variables)
+
+        for variable in qc_variables.keys():
             self.qc_by_var.update({variable: dict(qc_flags={}, qc_details={})})
 
     def get_is_floater(
@@ -115,8 +122,8 @@ class QualityControl:
 
         """
         var_keys = set(variable_dict.keys())
-        if set(var_keys) != set(self.qc_vars):
-            var_keys = set(var_keys) & set(self.qc_vars)
+        if set(var_keys) != set(self.qc_vars.keys()):
+            var_keys = set(var_keys) & set(self.qc_vars.keys())
             warnings.warn(
                 f"variables for which frequency is given do not match the qc_variables. Continue for the intersection  {var_keys}"
             )
@@ -179,7 +186,7 @@ class QualityControl:
                 f"{ds.attrs['SondeId']} has not been checked for being a floater. Please run is_floater first."
             )
 
-        for variable in self.qc_vars:
+        for variable in self.qc_vars.keys():
             dataset = ds.where(
                 (ds[alt_dim] > alt_bounds[0]) & (ds[alt_dim] < alt_bounds[1]), drop=True
             )
@@ -309,7 +316,7 @@ class QualityControl:
                 be filtered and organized by variable.
 
         """
-        for variable in self.qc_vars:
+        for variable in self.qc_vars.keys():
             self.qc_by_var[variable]["qc_flags"].update(
                 {
                     key: self.qc_flags.get(key)
@@ -371,7 +378,27 @@ class QualityControl:
         )
         return np.byte(qc_val), attrs
 
-    def get_details(self, variable):
+    def get_unit_for_qc(self, qc_name, var_name=None):
+        """
+        get the correct unit for the detailed qc value. Depends on the last bit of the qc detail name
+        """
+        var_unit = self.qc_vars[var_name]
+        if (
+            (qc_name.endswith("diff"))
+            or (qc_name.endswith("min"))
+            or (qc_name.endswith("max"))
+        ):
+            return var_unit
+        elif (
+            qc_name.endswith("count")
+            or qc_name.endswith("fraction")
+            or qc_name.endswith("ratio")
+        ):
+            return "1"
+        else:
+            warnings.warn("qc ending not specified. can't return a unit.")
+
+    def get_details_var(self, variable):
         """
         Retrieve quality control details and attributes for a specified variable.
 
@@ -396,7 +423,7 @@ class QualityControl:
                 {
                     key: dict(
                         long_name=f"value for qc  {variable} " + name.replace("_", " "),
-                        units="1",
+                        units=self.get_unit_for_qc(key, variable),
                     )
                 }
             )
@@ -410,7 +437,7 @@ class QualityControl:
         ds = hx.add_ancillary_var(ds, variable, name)
         # get detail
         if details:
-            qc_dict, attrs = self.get_details(variable)
+            qc_dict, attrs = self.get_details_var(variable)
             for key in list(qc_dict.keys()):
                 ds = ds.assign({key: qc_dict.get(key)})
                 ds[key].attrs.update(attrs.get(key))
@@ -469,7 +496,7 @@ class QualityControl:
             ds["low_physics_rh_min"].attrs.update(
                 dict(
                     long_name="minimal relative humidity below 100m",
-                    units="%",
+                    units="1",
                 )
             )
 
@@ -479,7 +506,7 @@ class QualityControl:
             ds["low_physics_ta_min"].attrs.update(
                 dict(
                     long_name="minimal temperature below 100m",
-                    units="degreeC",
+                    units="K",
                 )
             )
 
