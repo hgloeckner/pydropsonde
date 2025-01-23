@@ -1772,6 +1772,8 @@ class Gridded:
         for circle_id, circle in self.circles.items():
             circle_ds = circle.circle_ds
 
+            circle_ds = circle_ds.swap_dims({"sonde_id": "launch_time"})
+
             if "launch_time" in circle_ds:
                 circle_ds_sorted = circle_ds.sortby("launch_time")
 
@@ -2020,7 +2022,7 @@ class Gridded:
             ds=ds,
             dir=l4_dir,
             filename=self.l4_filename,
-            object_dims=("sonde_id", "circle_id"),
+            object_dims=("launch_time", "circle_id"),
             alt_dim="alt",
         )
         return self

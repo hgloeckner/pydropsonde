@@ -173,6 +173,7 @@ l3_vars = [
     "gpsalt",
     "alt",
     "sonde_id",
+    "launch_time",
     "q",
     "iwv",
     "w_dir",

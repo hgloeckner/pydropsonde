@@ -32,6 +32,7 @@ def get_chunks(ds, var, object_dims=("sonde_id", "circle_id"), alt_dim="alt"):
     """
     Get standard chunks for one object_dim (like sonde_id or circle_id) and one height dimension
     """
+
     chunks = {object_dim: min(256, ds[object_dim].size) for object_dim in object_dims}
     if alt_dim in ds[var].dims:
         chunks.update(
