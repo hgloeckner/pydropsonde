@@ -1792,6 +1792,16 @@ class Gridded:
         )
         concatenated_ds.attrs["sample_dimension"] = "launch_time"
 
+        vars_to_drop_circle_id = [
+            var
+            for var in concatenated_ds.variables
+            if ({"launch_time", "alt"} <= set(concatenated_ds[var].dims))
+            or ({"circle_id", "launch_time"} <= set(concatenated_ds[var].dims))
+        ]
+
+        for var in vars_to_drop_circle_id:
+            concatenated_ds[var] = concatenated_ds[var].isel(circle_id=0, drop=True)
+
         self._interim_l4_ds = concatenated_ds
 
         if sortby in self._interim_l4_ds.coords:
