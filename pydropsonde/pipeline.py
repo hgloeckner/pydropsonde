@@ -621,6 +621,7 @@ pipeline = {
             "add_vorticity",
             "add_omega",
             "add_wvel",
+            "add_regression_stderr",
         ],
         "output": "circles",
         "comment": "calculate circle products",
