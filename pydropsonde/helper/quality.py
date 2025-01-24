@@ -222,6 +222,37 @@ class QualityControl:
             self.qc_flags["alt_near_gpsalt"] = False
         self.qc_details["alt_near_gpsalt_max_diff"] = max_diff.values
 
+    def low_physics(self, ds, rh_min=0.3, ta_min=293.15, alt_dim="gpsalt"):
+        """
+        Checks that the temperature and relative humidity in the lowest 100m in a dataset
+        are above a certain value
+
+
+        Parameters
+        ----------
+        self : object
+        The object containing the necessary attributes and methods.
+        ds : xarray.Dataset
+        The dataset to check for low physics conditions.
+        alt_dim : str, optional
+        The dimension name of the altitude coordinate (default is "gpsalt").
+
+        Returns
+        -------
+        None
+        """
+        ds_check = ds.where(ds[alt_dim] < 100, drop=True)
+        if ds_check.sizes["time"] == 0:
+            self.qc_flags["low_physics"] = False
+            self.qc_details["low_physics_rh_min"] = np.nan
+            self.qc_details["low_physics_ta_min"] = np.nan
+        else:
+            self.qc_flags["low_physics"] = (ds_check.rh.min() > float(rh_min)) and (
+                ds_check.ta.min() > float(ta_min)
+            )
+            self.qc_details["low_physics_rh_min"] = ds_check.rh.min().values
+            self.qc_details["low_physics_ta_min"] = ds_check.ta.min().values
+
     def check_qc(self, used_flags=None, check_ugly=True):
         """
         check if any qc check has failed.
@@ -419,6 +450,56 @@ class QualityControl:
             )
         return ds
 
+    def add_low_physic_flags_to_ds(self, ds):
+        if self.qc_flags.get("low_physics") is not None:
+            ds = ds.assign(
+                {"low_physics": np.byte(not self.qc_flags.get("low_physics"))}
+            )
+            ds["low_physics"].attrs.update(
+                dict(
+                    long_name="low physics",
+                    flag_values="0 1 ",
+                    flag_meaning="GOOD BAD",
+                )
+            )
+
+            ds = ds.assign(
+                {"low_physics_rh_min": self.qc_details.get("low_physics_rh_min")}
+            )
+            ds["low_physics_rh_min"].attrs.update(
+                dict(
+                    long_name="minimal relative humidity below 100m",
+                    units="%",
+                )
+            )
+
+            ds = ds.assign(
+                {"low_physics_ta_min": self.qc_details.get("low_physics_ta_min")}
+            )
+            ds["low_physics_ta_min"].attrs.update(
+                dict(
+                    long_name="minimal temperature below 100m",
+                    units="degreeC",
+                )
+            )
+
+            ds = hx.add_ancillary_var(
+                ds,
+                "sonde_id",
+                "low_physics",
+            )
+            ds = hx.add_ancillary_var(
+                ds,
+                "rh",
+                "low_physics_rh_min",
+            )
+            ds = hx.add_ancillary_var(
+                ds,
+                "ta",
+                "low_physics_ta_min",
+            )
+        return ds
+
     def replace_alt_var(self, ds, alt_var):
         """
         Replace the altitude variable in a dataset with its counterpart.
@@ -500,6 +581,7 @@ class QualityControl:
         """
         ds_out = self.add_alt_near_gpsalt_to_ds(ds)
         ds_out = self.add_replace_alt_var_to_ds(ds_out)
+        ds_out = self.add_low_physic_flags_to_ds(ds_out)
 
         return ds_out
 

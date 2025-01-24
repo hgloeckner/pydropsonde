@@ -501,6 +501,7 @@ pipeline = {
             "crop_aspen_ds_to_landing_time",
             "create_interim_l2_ds",
             "get_l2_variables",
+            "convert_to_si",
             "set_alt_dim",
             "replace_alt_dim",
             "set_qc_vars",
@@ -513,7 +514,6 @@ pipeline = {
         "intake": "sondes",
         "apply": iterate_Sonde_method_over_dict_of_Sondes_objects,
         "functions": [
-            "convert_to_si",
             "get_flight_attributes",
             "get_sonde_attributes",
             "add_l2_attributes_to_interim_l2_ds",

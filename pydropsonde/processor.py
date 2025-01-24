@@ -464,7 +464,12 @@ class Sonde:
             contains qc functions in the QualityControl class that should be run on the qc_variables. Can be a list of strings or a string with comma-separated variable names
         """
         if run_qc is None:
-            run_qc = ["profile_fullness", "near_surface_coverage", "alt_near_gpsalt"]
+            run_qc = [
+                "profile_fullness",
+                "near_surface_coverage",
+                "alt_near_gpsalt",
+                "low_physics",
+            ]
         elif isinstance(run_qc, str):
             run_qc = run_qc.split(",")
         ds = self.interim_l2_ds
@@ -1507,8 +1512,10 @@ class Sonde:
         if keep is None:
             keep = []
         elif keep == "all":
-            keep = [f"{var}_qc" for var in list(self.qc.qc_by_var.keys())] + list(
-                self.qc.qc_details.keys()
+            keep = (
+                [f"{var}_qc" for var in list(self.qc.qc_by_var.keys())]
+                + list(self.qc.qc_details.keys())
+                + ["low_physics", "alt_near_gpsalt"]
             )
         elif isinstance(keep, str):
             keep = keep.split(",")
