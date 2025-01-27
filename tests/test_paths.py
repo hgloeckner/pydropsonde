@@ -6,7 +6,7 @@ import pytest
 main_data_directory = "./example_data"
 platform_id = "HALO"
 flightdate = "20200119"
-flightdate2 = "20200122"
+flightdate2 = "HALO-20240926a"
 path_structure = "{platform}/Level_0/{flight_id}"
 platform_path_structure = "{platform}/Level_0"
 
