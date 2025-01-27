@@ -257,16 +257,22 @@ def create_and_populate_circle_object(
     circles = {}
 
     for segment in gridded.segments:
-        try:
-            circle_ds = gridded.l3_ds.where(
-                (gridded.l3_ds["launch_time"] > np.datetime64(segment["start"]))
-                & (gridded.l3_ds["launch_time"] < np.datetime64(segment["end"])),
-                drop=True,
-            )
-        except ValueError:
-            print(f"No data for segment {segment["segment_id"]}")
+        extra_sondes = gridded.l3_ds.sel(
+            sonde_id=gridded.l3_ds.sonde_id.isin(segment.get("extra_sondes"))
+        )
 
-        else:
+        circle_ds = gridded.l3_ds.where(
+            (gridded.l3_ds["launch_time"] > np.datetime64(segment["start"]))
+            & (gridded.l3_ds["launch_time"] < np.datetime64(segment["end"])),
+            drop=True,
+        )
+        circle_ds = xr.concat(
+            [circle_ds, extra_sondes],
+            dim="sonde_id",
+            join="exact",
+            combine_attrs="no_conflicts",
+        )
+        if circle_ds.sonde_id.size > 0:
             circle = Circle(
                 circle_ds=circle_ds,
                 flight_id=segment["flight_id"],
@@ -278,6 +284,8 @@ def create_and_populate_circle_object(
                 crad=segment.get("radius"),
             )
             circles[segment["segment_id"]] = circle
+        else:
+            print(f"No data for segment {segment["segment_id"]}")
 
     return circles
 
