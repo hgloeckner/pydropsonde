@@ -1178,7 +1178,7 @@ class Sonde:
         self.interim_l3_ds = (self.interim_l3_ds.swap_dims({"time": alt_dim})).load()
         return self
 
-    def remove_non_mono_incr_alt(self):
+    def remove_non_mono_incr_alt(self, bottom_up=True):
         """
         This function removes the indices in the some height variable that are not monotonically increasing
         """
@@ -1186,25 +1186,42 @@ class Sonde:
 
         ds = self.interim_l3_ds
 
-        diff_array = (
-            ds[alt_dim].sortby("time").dropna(dim="time").diff(dim="time").values
-        )
+        diff_array = ds[alt_dim].sortby("time").dropna(dim="time").diff(dim="time")
         if not np.all(diff_array < 0):
             warnings.warn(
                 f"your altitude for sonde {self.serial_id
                 } on {self.launch_time} is not sorted."
             )
-            alt = ds[alt_dim]
+            if bottom_up:
+                alt = ds[alt_dim].sortby("time", ascending=False).values
+                idx = (
+                    diff_array.sortby("time", ascending=False)
+                    .where(diff_array > 0)
+                    .argmin(dim="time")
+                    .values
+                )
+                curr_alt = alt[idx]
+                idx = idx + 1
+                while idx < ds.sizes["time"]:
+                    if alt[idx] < curr_alt:
+                        alt[idx] = np.nan
+                    elif ~np.isnan(alt[idx]):
+                        curr_alt = alt[idx]
+                    idx += 1
+                ds = ds.assign({alt_dim: ("time", alt[::-1])})
 
-            curr_alt = alt.isel(time=0)
-            for i in range(len(alt)):
-                if alt[i] > curr_alt:
-                    alt[i] = np.nan
-                elif ~np.isnan(alt[i]):
-                    curr_alt = alt[i]
-            ds[alt_dim] = alt
+            else:
+                alt = ds[alt_dim]
+                curr_alt = alt.isel(time=0)
+                for i in range(len(alt)):
+                    if alt[i] > curr_alt:
+                        alt[i] = np.nan
+                    elif ~np.isnan(alt[i]):
+                        curr_alt = alt[i]
+                ds[alt_dim] = alt
 
         self.interim_l3_ds = ds
+
         return self
 
     def interpolate_alt(
