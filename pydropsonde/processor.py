@@ -1183,16 +1183,26 @@ class Sonde:
         This function removes the indices in the some height variable that are not monotonically increasing
         """
         alt_dim = self.alt_dim
-        ds = self.interim_l3_ds.load()
-        alt = ds[alt_dim]
 
-        curr_alt = alt.isel(time=0)
-        for i in range(len(alt)):
-            if alt[i] > curr_alt:
-                alt[i] = np.nan
-            elif ~np.isnan(alt[i]):
-                curr_alt = alt[i]
-        ds[alt_dim] = alt
+        ds = self.interim_l3_ds
+
+        diff_array = (
+            ds[alt_dim].sortby("time").dropna(dim="time").diff(dim="time").values
+        )
+        if not np.all(diff_array < 0):
+            warnings.warn(
+                f"your altitude for sonde {self.serial_id
+                } on {self.launch_time} is not sorted."
+            )
+            alt = ds[alt_dim]
+
+            curr_alt = alt.isel(time=0)
+            for i in range(len(alt)):
+                if alt[i] > curr_alt:
+                    alt[i] = np.nan
+                elif ~np.isnan(alt[i]):
+                    curr_alt = alt[i]
+            ds[alt_dim] = alt
 
         self.interim_l3_ds = ds
         return self
@@ -1214,11 +1224,6 @@ class Sonde:
         interpolation_grid = np.arange(interp_start, interp_stop, interp_step)
         ds = self.interim_l3_ds
 
-        if not (ds[alt_dim].diff(dim=alt_dim) < 0).any():
-            warnings.warn(
-                f"your altitude for sonde {self.serial_id
-                } on {self.launch_time} is not sorted."
-            )
         if p_log:
             ds = ds.assign(p=(ds.p.dims, np.log(ds.p.values), ds.p.attrs))
         if method == "linear_interpolate":
