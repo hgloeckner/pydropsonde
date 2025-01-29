@@ -28,6 +28,10 @@ def add_ancillary_var(ds, variable, anc_name):
     return ds
 
 
+def remove_above_alt(ds, variables, alt_dim, maxalt):
+    return ds.assign({var: ds[var].where(ds[alt_dim] < maxalt) for var in variables})
+
+
 # encode and write files
 def get_chunks(ds, var, object_dim="sonde_id", alt_dim="alt"):
     """

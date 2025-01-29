@@ -470,7 +470,7 @@ class Sonde:
 
         return self
 
-    def remove_above_aircraft(self, max_alt=15000):
+    def below_aircraft_qc(self, max_alt=15000):
         """
         Remove measurements that are above the aircraft altitude or some threshold value if aircraft altitude is not given.
 
@@ -481,10 +481,12 @@ class Sonde:
 
         """
         self.qc.set_qc_ds(self.interim_l2_ds)
+
         aircraft_alt = self.flight_attrs.get(
             "aircraft_msl_altitude_(m)", float(max_alt)
         )
-        self.interim_l2_ds = ds.where(ds[self.alt_dim] < aircraft_alt, drop=True)
+        self.qc.alt_below_aircraft(aircraft_alt)
+
         return self
 
     def init_qc(self, qc_vars=None):
@@ -552,27 +554,6 @@ class Sonde:
                 f"Quality control returned False. Therefore, filtering this sonde ({self.serial_id}) out from L2"
             )
             return None
-
-    def create_interim_l2_ds(self):
-        """
-        Creates an interim L2 dataset from the aspen_ds or cropped_aspen_ds attribute.
-
-        Parameters
-        ----------
-        None
-
-        Returns
-        -------
-        self : object
-            Returns the sonde object with the interim L2 dataset added as an attribute.
-        """
-        if self.qc.is_floater:
-            ds = self.cropped_aspen_ds
-        else:
-            ds = self.aspen_ds
-        self.interim_l2_ds = ds
-
-        return self
 
     def convert_to_si(self, variables=["rh", "p", "ta"], skip=False):
         """
@@ -1049,6 +1030,17 @@ class Sonde:
             return self
         else:
             return self
+
+    def remove_above_aircraft(self, max_alt=15000):
+        """
+        remove measured values above aircraft
+        """
+        variables = ["lat", "lon", "gpsalt", "u", "v"]
+        maxalt = self.flight_attrs.get("aircraft_msl_altitude_(m)", float(max_alt))
+        self.interim_l3_ds = hx.remove_above_alt(
+            self.interim_l3_ds, variables, alt_dim=self.alt_dim, maxalt=maxalt
+        )
+        return self
 
     def add_q_and_theta_to_l2_ds(self):
         """

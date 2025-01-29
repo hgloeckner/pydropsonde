@@ -87,6 +87,25 @@ class QualityControl:
         )
         return surface_ds.time[0].values
 
+    def alt_below_aircraft(
+        self,
+        maxalt,
+    ):
+        """
+        check if any measurements have been taken above the aircraft
+        """
+        alt_dim = self.alt_dim
+        ds = self.qc_ds
+        self.qc_flags[f"{alt_dim}_below_aircraft"] = (
+            np.nanmax(ds[alt_dim].values) < maxalt
+        )
+        if not self.qc_flags[f"{alt_dim}_below_aircraft"]:
+            variables = ["lat", "lon", "gpsalt", "u", "v"]
+
+            self.set_qc_ds(
+                hx.remove_above_alt(ds, variables, alt_dim=alt_dim, maxalt=maxalt)
+            )
+
     def profile_extent(
         self,
         extent_min=8000,
@@ -513,6 +532,29 @@ class QualityControl:
             )
         return ds
 
+    def add_below_aircraft_to_ds(self, ds):
+        """
+        add quality flag whether any measurement is above aircraft alt to ds
+        """
+        alt_dim = self.alt_dim
+        ds = ds.assign(
+            {
+                f"{alt_dim}_below_aircraft": np.byte(
+                    not self.qc_flags.get(f"{alt_dim}_below_aircraft")
+                )
+            }
+        )
+        ds[f"{alt_dim}_below_aircraft"].attrs.update(
+            dict(
+                long_name=f"qc heighest {alt_dim} measurement below aircraft",
+                flag_values="0 1 ",
+                flag_meaning="GOOD BAD",
+            )
+        )
+
+        ds = hx.add_ancillary_var(ds, alt_dim, f"{alt_dim}_below_aircraft")
+        return ds
+
     def replace_alt_var(self, ds, alt_var):
         """
         Replace the altitude variable in a dataset with its counterpart.
@@ -594,6 +636,7 @@ class QualityControl:
         """
         ds_out = self.add_alt_near_gpsalt_to_ds(ds)
         ds_out = self.add_replace_alt_var_to_ds(ds_out)
+        ds_out = self.add_below_aircraft_to_ds(ds_out)
 
         return ds_out
 
