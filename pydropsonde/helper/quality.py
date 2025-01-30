@@ -609,7 +609,7 @@ class QualityControl:
         ds = ds.assign(
             {
                 f"{self.alt_dim}_values": np.byte(
-                    (not self.qc_flags.get(f"{self.alt_dim}_values", False))
+                    (not self.qc_flags.get(f"{self.alt_dim}_values", True))
                 )
             }
         )
