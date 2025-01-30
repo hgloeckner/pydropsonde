@@ -416,7 +416,7 @@ class Sonde:
             return self
         else:
             if hasattr(self, "aspen_ds"):
-                landing_time = self.qc.get_is_floater(aspen_ds=self.aspen_ds)
+                landing_time = self.qc.get_is_floater()
                 self.landing_time = landing_time
             else:
                 raise ValueError(
@@ -439,9 +439,9 @@ class Sonde:
         """
         if hasattr(self.qc, "is_floater"):
             if self.qc.is_floater:
-                self.cropped_aspen_ds = self.aspen_ds.sel(
-                    time=slice(self.landing_time, None)
-                )
+                cropped_ds = self.aspen_ds.sel(time=slice(self.landing_time, None))
+                self.cropped_aspen_ds = cropped_ds
+                self.qc.set_qc_ds(cropped_ds)
 
         else:
             raise ValueError(
@@ -449,7 +449,45 @@ class Sonde:
             )
         return self
 
-    def set_qc_vars(self, qc_vars=None):
+    def create_interim_l2_ds(self):
+        """
+        Creates an interim L2 dataset from the aspen_ds or cropped_aspen_ds attribute.
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        self : object
+            Returns the sonde object with the interim L2 dataset added as an attribute.
+        """
+        if self.qc.is_floater:
+            ds = self.cropped_aspen_ds
+        else:
+            ds = self.aspen_ds
+        self.interim_l2_ds = ds
+
+        return self
+
+    def remove_above_aircraft(self, max_alt=15000):
+        """
+        Remove measurements that are above the aircraft altitude or some threshold value if aircraft altitude is not given.
+
+        Parameters
+        ----------
+        max_alt :
+            maximum realistic meassured altitude
+
+        """
+        self.qc.set_qc_ds(self.interim_l2_ds)
+        aircraft_alt = self.flight_attrs.get(
+            "aircraft_msl_altitude_(m)", float(max_alt)
+        )
+        self.interim_l2_ds = ds.where(ds[self.alt_dim] < aircraft_alt, drop=True)
+        return self
+
+    def init_qc(self, qc_vars=None):
         """
         set the variables for which to run the quality control.
 
@@ -462,6 +500,7 @@ class Sonde:
         if qc_vars is None:
             qc_vars = {"u": "m s-1", "v": "m s-1", "rh": "1", "ta": "K", "p": "Pa"}
         self.qc.set_qc_variables(qc_vars)
+        self.qc.set_qc_ds(self.aspen_ds)
         return self
 
     def get_qc(self, run_qc=None):
@@ -483,10 +522,9 @@ class Sonde:
             ]
         elif isinstance(run_qc, str):
             run_qc = run_qc.split(",")
-        ds = self.interim_l2_ds
         for fct in run_qc:
             qc_fct = getattr(self.qc, fct)
-            qc_fct(ds)
+            qc_fct()
         return self
 
     def remove_non_qc_sondes(self, used_flags=None, remove_ugly=True):

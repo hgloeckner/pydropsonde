@@ -508,6 +508,7 @@ pipeline = {
         "intake": "sondes",
         "apply": iterate_Sonde_method_over_dict_of_Sondes_objects,
         "functions": [
+            "init_qc",
             "detect_floater",
             "crop_aspen_ds_to_landing_time",
             "create_interim_l2_ds",

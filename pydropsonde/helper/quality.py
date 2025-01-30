@@ -17,6 +17,7 @@ class QualityControl:
         self.qc_details = {}
         self.qc_by_var = {}
         self.alt_dim = "time"
+        self.qc_ds = None
 
     def set_qc_variables(self, qc_variables):
         """
@@ -30,9 +31,11 @@ class QualityControl:
         for variable in qc_variables.keys():
             self.qc_by_var.update({variable: dict(qc_flags={}, qc_details={})})
 
+    def set_qc_ds(self, ds):
+        self.qc_ds = ds
+
     def get_is_floater(
         self,
-        aspen_ds,
         gpsalt_threshold: float = 25,
         consecutive_time_steps: int = 3,
     ):
@@ -50,10 +53,11 @@ class QualityControl:
         ------
         Estimated landing time for floater or None
         """
+        ds = self.qc_ds
         gpsalt_threshold = float(gpsalt_threshold)
 
         surface_ds = (
-            aspen_ds.where(aspen_ds.gpsalt < gpsalt_threshold, drop=True)
+            ds.where(ds.gpsalt < gpsalt_threshold, drop=True)
             .sortby("time")
             .dropna(dim="time", how="any", subset=["pres", "gpsalt"])
         )
@@ -75,17 +79,16 @@ class QualityControl:
             if np.all(floater[time_index : time_index + consecutive_time_steps]):
                 landing_time = surface_ds.time[time_index - 1].values
                 print(
-                    f"{aspen_ds.attrs['SondeId']}: Floater detected! The landing time is estimated as {landing_time}."
+                    f"{ds.attrs['SondeId']}: Floater detected! The landing time is estimated as {landing_time}."
                 )
                 return landing_time
         print(
-            f"{aspen_ds.attrs['SondeId']}: Floater detected! However, the landing time could not be estimated. Therefore setting landing time as {surface_ds.time[0].values}"
+            f"{ds.attrs['SondeId']}: Floater detected! However, the landing time could not be estimated. Therefore setting landing time as {surface_ds.time[0].values}"
         )
         return surface_ds.time[0].values
 
     def profile_extent(
         self,
-        ds,
         extent_min=8000,
     ):
         """
@@ -105,6 +108,7 @@ class QualityControl:
         Returns:
             None
         """
+        ds = self.qc_ds
         alt_dim = self.alt_dim
         variables = self.qc_vars
         for variable in variables:
@@ -119,7 +123,6 @@ class QualityControl:
 
     def profile_sparsity(
         self,
-        ds,
         variable_dict={"u": 4, "v": 4, "rh": 2, "ta": 2, "p": 2},
         time_dimension="time",
         timestamp_frequency=4,
@@ -140,7 +143,6 @@ class QualityControl:
 
         Parameters
         ----------
-        ds : dataset to run near_surface_coverage on
         variable_dict : dict, optional
             Dictionary containing the variables in `self.aspen_ds` and their respective sampling frequencies.
             The function will estimate the weighted profile-coverage for these variables.
@@ -155,6 +157,7 @@ class QualityControl:
 
 
         """
+        ds = self.qc_ds
         var_keys = set(variable_dict.keys())
         if set(var_keys) != set(self.qc_vars.keys()):
             var_keys = set(var_keys) & set(self.qc_vars.keys())
@@ -177,9 +180,7 @@ class QualityControl:
 
     def near_surface_coverage(
         self,
-        ds,
         alt_bounds=[0, 1000],
-        alt_dim="gpsalt",
         count_threshold=50,
     ):
         """
@@ -195,7 +196,6 @@ class QualityControl:
 
         Parameters
         ----------
-        ds : dataset to run near_surface_coverage on
         alt_bounds : list, optional
             The lower and upper bounds of altitude in meters to consider for the calculation. Defaults to [0,1000].
         alt_dim : str, optional
@@ -205,7 +205,8 @@ class QualityControl:
 
 
         """
-
+        ds = self.qc_ds
+        alt_dim = self.alt_dim
         count_threshold = int(count_threshold)
 
         if isinstance(alt_bounds, str):
@@ -235,7 +236,7 @@ class QualityControl:
                 near_surface_count.values
             )
 
-    def alt_near_gpsalt(self, ds, diff_threshold=150):
+    def alt_near_gpsalt(self, diff_threshold=150):
         """
         Calculates the mean difference between msl altitude and gpsaltitude in the dataset
 
@@ -248,11 +249,10 @@ class QualityControl:
 
         Parameters
         ----------
-        ds : dataset to run near_surface_coverage on
         diff_threshold : accepted difference between altitude and gpsaltitude. Default is 150m
 
         """
-
+        ds = self.qc_ds
         dataset = ds[["alt", "gpsalt"]]
         if not self.qc_flags.get(f"{self.alt_dim}_values", True):
             return 0
@@ -264,7 +264,7 @@ class QualityControl:
             self.qc_flags["alt_near_gpsalt"] = False
         self.qc_details["alt_near_gpsalt_max_diff"] = max_diff.values
 
-    def low_physics(self, ds, rh_min=0.3, ta_min=293.15, alt_dim="gpsalt"):
+    def low_physics(self, rh_min=0.3, ta_min=293.15, alt_dim="gpsalt"):
         """
         Checks that the temperature and relative humidity in the lowest 100m in a dataset
         are above a certain value
@@ -274,8 +274,6 @@ class QualityControl:
         ----------
         self : object
         The object containing the necessary attributes and methods.
-        ds : xarray.Dataset
-        The dataset to check for low physics conditions.
         alt_dim : str, optional
         The dimension name of the altitude coordinate (default is "gpsalt").
 
@@ -283,6 +281,7 @@ class QualityControl:
         -------
         None
         """
+        ds = self.qc_ds
         ds_check = ds.where(ds[alt_dim] < 100, drop=True)
         if ds_check.sizes["time"] == 0:
             self.qc_flags["rh_low_physics"] = False
