@@ -184,13 +184,14 @@ class QualityControl:
                 f"variables for which frequency is given do not match the qc_variables. Continue for the intersection  {var_keys}"
             )
         for variable in var_keys:
-            dataset = ds[variable]
+            min_valid_idx = ds[variable].notnull().argmax(dim=time_dimension).values
+            dataset = ds[variable].isel(time=slice(min_valid_idx, None))
             sampling_frequency = variable_dict[variable]
             weighed_time_size = len(dataset[time_dimension]) / (
                 timestamp_frequency / sampling_frequency
             )
-            sparsity_fraction = (
-                1 - np.sum(~np.isnan(dataset.values)) / weighed_time_size
+            sparsity_fraction = 1 - (
+                dataset.count(dim=time_dimension).values / weighed_time_size
             )
             self.qc_flags[f"{variable}_profile_sparsity"] = (
                 sparsity_fraction < sparsity_threshold
