@@ -47,7 +47,7 @@ class Circle:
 
     def get_xy_coords_for_circles(self):
         if self.circle_ds.lon.size == 0 or self.circle_ds.lat.size == 0:
-            print("Empty segment: 'lon' or 'lat' is empty.")
+            print(f"Empty segment {self.segment_id}: 'lon' or 'lat' is empty.")
             return None  # or some default value like [], np.array([]), etc.
 
         x_coor = (
@@ -227,6 +227,8 @@ class Circle:
 
             ds = self.circle_ds.assign(assign_dict)
         ds[alt_var].attrs.update(alt_attrs)
+        ds = ds.set_coords("circle_time")
+
         self.circle_ds = ds
         return self
 

@@ -267,19 +267,22 @@ def create_and_populate_circle_object(
             print(f"No data for segment {segment["segment_id"]}")
 
         else:
-            circle = Circle(
-                circle_ds=circle_ds,
-                flight_id=segment["flight_id"],
-                platform_id=segment["platform_id"],
-                segment_id=segment["segment_id"],
-                alt_dim=gridded.alt_dim,
-                clon=segment.get("clon"),
-                clat=segment.get("clat"),
-                crad=segment.get("radius"),
-            )
-            circles[segment["segment_id"]] = circle
+            if circle_ds and circle_ds.launch_time.size > 0:
+                circle = Circle(
+                    circle_ds=circle_ds,
+                    flight_id=segment["flight_id"],
+                    platform_id=segment["platform_id"],
+                    segment_id=segment["segment_id"],
+                    alt_dim=gridded.alt_dim,
+                    clon=segment.get("clon"),
+                    clat=segment.get("clat"),
+                    crad=segment.get("radius"),
+                )
+                circles[segment["segment_id"]] = circle
 
-    return circles
+    gridded.circles = circles
+
+    return gridded
 
 
 def iterate_Sonde_method_over_dict_of_Sondes_objects(
@@ -328,8 +331,8 @@ def iterate_Sonde_method_over_dict_of_Sondes_objects(
 
 
 def iterate_Circle_method_over_dict_of_Circle_objects(
-    obj: dict, functions: list, config: configparser.ConfigParser
-) -> dict:
+    obj: Gridded, functions: list, config: configparser.ConfigParser
+) -> object:
     """
     Iterates over a dictionary of Circle objects and applies a list of methods to each Circle.
 
@@ -357,7 +360,8 @@ def iterate_Circle_method_over_dict_of_Circle_objects(
     dict
         A dictionary of Circle objects with the results of the methods applied to them (keys where results are None are not included).
     """
-    my_dict = obj
+
+    my_dict = obj.circles
 
     for function_name in functions:
         new_dict = {}
@@ -369,12 +373,14 @@ def iterate_Circle_method_over_dict_of_Circle_objects(
 
             my_dict = new_dict
 
-    return my_dict
+    obj.circles.update(my_dict)
+    return obj
 
 
 def sondes_to_gridded(sondes: dict, config: configparser.ConfigParser):
     global_attrs = get_global_attrs_from_config(config)
-    gridded = Gridded(sondes, global_attrs=global_attrs)
+    gridded = Gridded(sondes=sondes, circles=None, global_attrs=global_attrs)
+    gridded.concat_sondes()
     return gridded
 
 
@@ -390,15 +396,6 @@ def apply_method_to_dataset(
         function = getattr(Gridded, function_name)
         result = function(obj, **get_args_for_function(config, function))
     return result
-
-
-def gridded_to_pattern(
-    gridded: xr.Dataset, config: configparser.ConfigParser
-) -> xr.Dataset:
-    """
-    The flight-phase segmentation file must be provided via the config file.
-    """
-    pass
 
 
 def run_substep(
@@ -590,18 +587,18 @@ pipeline = {
     "create_circles": {
         "intake": "gridded",
         "apply": create_and_populate_circle_object,
-        "output": "circles",
+        "output": "gridded",
         "comment": "This step creates a dictionary of patterns by creating the pattern with the flight-phase segmentation file.",
     },
     "prepare_circle_dataset": {
-        "intake": "circles",
+        "intake": "gridded",
         "apply": iterate_Circle_method_over_dict_of_Circle_objects,
         "functions": ["drop_m_N_vars", "get_xy_coords_for_circles"],
-        "output": "circles",
+        "output": "gridded",
         "comment": "prepare circle dataset for calculation",
     },
     "calculate_circle_data": {
-        "intake": "circles",
+        "intake": "gridded",
         "apply": iterate_Circle_method_over_dict_of_Circle_objects,
         "functions": [
             "add_density",
@@ -610,7 +607,25 @@ pipeline = {
             "add_vorticity",
             "add_omega",
         ],
-        "output": "circles",
+        "output": "gridded",
         "comment": "calculate circle products",
+    },
+    "concatenate_circles": {
+        "intake": "gridded",
+        "apply": apply_method_to_dataset,
+        "functions": ["concat_circles"],
+        "output": "gridded",
+        "comment": "This step concatenates the individual circle datasets to create the L4 dataset.",
+    },
+    "create_L4": {
+        "intake": "gridded",
+        "apply": apply_method_to_dataset,
+        "functions": [
+            "get_l4_dir",
+            "get_l4_filename",
+            "write_l4",
+        ],
+        "output": "gridded",
+        "comment": "This step concatenates circles and creates the L4 dataset after adding additional products.",
     },
 }

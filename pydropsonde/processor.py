@@ -912,7 +912,7 @@ class Sonde:
             ds=ds,
             dir=l2_dir,
             filename=self.l2_filename,
-            object_dim="sonde_id",
+            object_dims=("sonde_id",),
             alt_dim="time",
         )
         return self
@@ -1622,7 +1622,7 @@ class Sonde:
             ds=ds,
             dir=self.interim_l3_dir,
             filename=self.interim_l3_filename,
-            object_dim="sonde_id",
+            object_dims=("sonde_id",),
             alt_dim=self.alt_dim,
         )
 
@@ -1659,6 +1659,7 @@ class Sonde:
 class Gridded:
     sondes: dict
     global_attrs: dict
+    circles: dict = None
 
     @property
     def l3_ds(self):
@@ -1819,6 +1820,63 @@ class Gridded:
         self.concat_sonde_ds = ds
         return self
 
+    def add_circles(self, circles: dict):
+        """
+        Add a dictionary of circles to the Gridded object.
+        """
+        self.circles = circles
+        return self
+
+    def concat_circles(self, sortby=None):
+        count = []
+        data = []
+        circle_ids = []
+
+        if sortby is None:
+            sortby = list(hh.l4_coords.keys())[0]
+
+        for circle_id, circle in self.circles.items():
+            circle_ds = circle.circle_ds
+
+            circle_ds = circle_ds.swap_dims({"sonde_id": "launch_time"})
+
+            if "launch_time" in circle_ds:
+                circle_ds_sorted = circle_ds.sortby("launch_time")
+
+            else:
+                raise ValueError(
+                    f"Coordinate 'launch_time' not found in circle_id {circle_id}."
+                )
+
+            count.append(len(circle_ds_sorted.launch_time))
+            data.append(circle_ds_sorted)
+            circle_ids.append(circle_id)
+
+        concatenated_ds = xr.concat(data, dim="circle_id")
+        concatenated_ds = concatenated_ds.assign_coords(
+            circle_id=("circle_id", circle_ids), count=("circle_id", np.array(count))
+        )
+        concatenated_ds.attrs["sample_dimension"] = "launch_time"
+
+        vars_to_drop_circle_id = [
+            var
+            for var in concatenated_ds.variables
+            if ({"launch_time", "alt"} <= set(concatenated_ds[var].dims))
+            or ({"circle_id", "launch_time"} <= set(concatenated_ds[var].dims))
+        ]
+
+        for var in vars_to_drop_circle_id:
+            concatenated_ds[var] = concatenated_ds[var].isel(circle_id=0, drop=True)
+
+        self._interim_l4_ds = concatenated_ds
+
+        if sortby in self._interim_l4_ds.coords:
+            self._interim_l4_ds = self._interim_l4_ds.sortby(sortby)
+        else:
+            raise ValueError(f"Coordinate '{sortby}' not found in the dataset.")
+
+        return self
+
     def get_all_attrs(self):
         """
         Collects all unique attributes from the sondes and stores them in the Gridded object.
@@ -1923,7 +1981,7 @@ class Gridded:
             ds=self.concat_sonde_ds,
             dir=l3_dir,
             filename=self.l3_filename,
-            object_dim="sonde_id",
+            object_dims=("sonde_id",),
             alt_dim=self.alt_dim,
         )
         return self
@@ -2003,4 +2061,44 @@ class Gridded:
             if "circle" in s["kinds"]
         ]
 
+        return self
+
+    def get_l4_dir(self, l4_dir: str = None):
+        if l4_dir:
+            self.l4_dir = l4_dir
+        elif self.circles is not None:
+            self.l4_dir = self.l3_dir.replace("Level_3", "Level_4")
+        else:
+            raise ValueError("No circles and no l4 directory given, cannot continue")
+        return self
+
+    def get_l4_filename(self, l4_filename: str = None):
+        if l4_filename is None:
+            l4_filename = hh.l4_filename
+        else:
+            l4_filename = l4_filename
+
+        self.l4_filename = l4_filename
+        return self
+
+    def write_l4(self, l4_dir: str = None, _interim_l4_ds: xr.Dataset = None):
+        if l4_dir is None:
+            l4_dir = self.l4_dir
+        ds = self._interim_l4_ds
+        history = getattr(self, "history", "")
+        history = (
+            history
+            + datetime.now(timezone.utc).isoformat()
+            + f" level4 concatenation with pydropsonde {__version__} \n"
+        )
+        object.__setattr__(self, "history", history)
+        ds.attrs.update({"history": history})
+
+        hx.write_ds(
+            ds=ds,
+            dir=l4_dir,
+            filename=self.l4_filename,
+            object_dims=("launch_time", "circle_id"),
+            alt_dim="alt",
+        )
         return self
