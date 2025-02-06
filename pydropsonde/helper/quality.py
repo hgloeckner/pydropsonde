@@ -287,7 +287,14 @@ class QualityControl:
             self.qc_flags["alt_near_gpsalt"] = False
         self.qc_details["alt_near_gpsalt_max_diff"] = max_diff.values
 
-    def low_physics(self, rh_min=0.3, ta_min=293.15, alt_dim="gpsalt"):
+    def low_physics(
+        self,
+        rh_min=0.3,
+        ta_min=293.15,
+        p_min=100500,
+        p_max=102000,
+        alt_dim="gpsalt",
+    ):
         """
         Checks that the temperature and relative humidity in the lowest 100m in a dataset
         are above a certain value
@@ -309,13 +316,20 @@ class QualityControl:
         if ds_check.sizes["time"] == 0:
             self.qc_flags["rh_low_physics"] = False
             self.qc_flags["ta_low_physics"] = False
+            self.qc_flags["p_low_physics"] = False
             self.qc_details["rh_low_physics_min"] = np.nan
             self.qc_details["ta_low_physics_min"] = np.nan
+            self.qc_details["p_low_physics_sfc"] = np.nan
         else:
+            sfc_p = ds.p.sortby("time", ascending=False).dropna(dim="time").values[0]
             self.qc_flags["ta_low_physics"] = ds_check.ta.min() > float(ta_min)
             self.qc_flags["rh_low_physics"] = ds_check.rh.min() > float(rh_min)
+            self.qc_flags["p_low_physics"] = (sfc_p > float(p_min)) and (
+                sfc_p < float(p_max)
+            )
             self.qc_details["rh_low_physics_min"] = ds_check.rh.min().values
             self.qc_details["ta_low_physics_min"] = ds_check.ta.min().values
+            self.qc_details["p_low_physics_sfc"] = sfc_p
 
     def check_qc(self, used_flags=None, check_ugly=True):
         """
@@ -444,6 +458,7 @@ class QualityControl:
             (qc_name.endswith("diff"))
             or (qc_name.endswith("min"))
             or (qc_name.endswith("max"))
+            or (qc_name.endswith("sfc"))
         ):
             return var_unit
         elif (
