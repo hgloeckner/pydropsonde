@@ -145,10 +145,10 @@ class Circle:
         )
         return self
 
-    def filter_qc(self):
+    def broadcast_ds(self):
         circle_ds = self.circle_ds
 
-        self.circle_ds = circle_ds.where(circle_ds.sonde_qc >= 0)
+        self.circle_ds = circle_ds.where(circle_ds.gps_N_qc)
 
         return self
 
@@ -183,6 +183,7 @@ class Circle:
         variables = ["u", "v", "q", "ta", "p"]
         dss = {}
         ds = self.circle_ds
+        max_gap = int(max_gap)
         alt_dim = self.alt_dim
         ds["p"] = np.log(ds["p"])
         if method is not None:
@@ -412,7 +413,6 @@ class Circle:
             "long_name": "Area-averaged atmospheric pressure velocity (omega)",
             "units": "hPa hr-1",
         }
-        self.circle_ds = ds.assign(
-            dict(omega_p=(ds.div.dims, omega.values, omega_attrs))
-        )
+        omega = omega.broadcast_like(ds.div)
+        self.circle_ds = ds.assign(dict(omega=(ds.div.dims, omega.values, omega_attrs)))
         return self
