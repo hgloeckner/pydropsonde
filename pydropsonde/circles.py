@@ -237,6 +237,47 @@ class Circle:
         self.circle_ds = xr.merge([self.circle_ds, distances], join="exact")
         return self
 
+    def add_weights(self, path=None, method=None, variables=None):
+        if variables is None:
+            variables = ["u", "v", "q", "theta", "p"]
+        ds = self.circle_ds
+        if method == "autocorrelation":
+            autocorr = xr.open_dataset(path, engine="zarr")
+            autocorr = autocorr.squeeze("sonde_id").broadcast_like(ds)
+            weights = []
+            for var in variables:
+                weight = xr.where(
+                    ds[f"{var}_dist"] == 0,
+                    1,
+                    autocorr[f"autocorr_{var}"]
+                    .sel(gpsalt=ds[f"{var}_dist"], method="nearest")
+                    .values,
+                )
+                weight.name = f"{var}_weights"
+                weight = xr.where(weight < 0, 0, weight)
+                weight = xr.where(weight > 1, 1, weight)
+                weights.append(weight)
+            weights = xr.merge(weights)
+            ds = xr.merge(
+                [ds, weights],
+                join="exact",
+                compat="no_conflicts",
+                combine_attrs="override",
+            )
+        elif path is not None:
+            weights = xr.open_dataset(path, engine="zarr").sel(sonde_id=ds.sonde_id)
+            ds = xr.merge(
+                [ds, weights],
+                join="exact",
+                compat="no_conflicts",
+                combine_attrs="override",
+            )
+        else:
+            for par in variables:
+                ds = ds.assign({f"{par}_weights": xr.full_like(ds[par], 1)})
+        self.circle_ds = ds
+        return self
+
     @staticmethod
     def fit2d(x, y, u):
         a = np.stack([np.ones_like(x), x, y], axis=-1)
