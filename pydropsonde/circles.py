@@ -216,6 +216,27 @@ class Circle:
         self.circle_ds = ds
         return self
 
+    def get_dist_to_nonan(self, variable, alt_dim="gpsalt"):
+        ds = self.circle_ds
+        masked_alt = ds.gpsalt.where(~np.isnan(ds[variable]))
+        masked_alt.name = "int_gpsalt"
+        int_masked = masked_alt.interpolate_na(
+            dim=alt_dim,
+            method="nearest",
+            fill_value="extrapolate",
+        )  # fill_value="extrapolate")
+        return np.abs(ds.gpsalt - int_masked)
+
+    def add_distances(self, alt_dim="gpsalt"):
+        res = {}
+        for var in ["u", "v", "p", "theta", "q"]:
+            res[var] = self.get_dist_to_nonan(variable=var)
+            res[var] = xr.where(res[var], res[var], 0)
+            res[var].name = f"{var}_dist"
+        distances = xr.merge(res.values(), join="exact")
+        self.circle_ds = xr.merge([self.circle_ds, distances], join="exact")
+        return self
+
     @staticmethod
     def fit2d(x, y, u):
         a = np.stack([np.ones_like(x), x, y], axis=-1)
