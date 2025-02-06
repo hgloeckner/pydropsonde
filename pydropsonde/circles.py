@@ -303,6 +303,21 @@ class Circle:
         self.circle_ds = ds
         return self
 
+    def remove_invalid(self, variables=None):
+        ds = self.circle_ds
+        if variables is None:
+            variables = ["u", "v", "q", "ta", "p", "density"]
+
+        for variable in variables:
+            for var in [
+                "mean_" + variable,
+                "d" + variable + "dx",
+                "d" + variable + "dy",
+            ]:
+                ds = ds.assign({var: ds[var].where(ds[var] != 0)})
+        self.circle_ds = ds
+        return self
+
     def add_density(self, sonde_dim="sonde_id", alt_dim="gpsalt"):
         """
         Calculate and add the density to the circle dataset.
