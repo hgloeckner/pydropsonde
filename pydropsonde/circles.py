@@ -179,6 +179,42 @@ class Circle:
         self.circle_ds = ds.where(alt_mask)
         return self
 
+    def apply_interp_na(self, method="cubic", max_gap=1500, x_method="cubic"):
+        variables = ["u", "v", "q", "ta", "p"]
+        dss = {}
+        ds = self.circle_ds
+        alt_dim = self.alt_dim
+        ds["p"] = np.log(ds["p"])
+        if method is not None:
+            ds_x = ds.x.interpolate_na(
+                dim=alt_dim,
+                method=x_method,
+                bounds_error=False,
+                fill_value=np.nan,
+                max_gap=max_gap,
+            )
+            ds_y = ds.y.interpolate_na(
+                dim=alt_dim,
+                method=x_method,
+                bounds_error=False,
+                fill_value=np.nan,
+                max_gap=max_gap,
+            )
+
+            for var in variables:
+                dss[var] = ds[var].interpolate_na(
+                    dim=alt_dim,
+                    method=method,
+                    bounds_error=False,
+                    fill_value=np.nan,
+                    max_gap=max_gap,
+                )
+
+            ds = ds.assign({**dss, "x": ds_x, "y": ds_y})
+        ds["p"] = np.exp(ds["p"])
+        self.circle_ds = ds
+        return self
+
     @staticmethod
     def fit2d(x, y, u):
         a = np.stack([np.ones_like(x), x, y], axis=-1)
