@@ -279,6 +279,20 @@ class Circle:
         return self
 
     @staticmethod
+    def fit2d_w(x, y, u, w):
+        a = np.stack([np.ones_like(x), x, y], axis=-1)
+
+        invalid = np.isnan(u) | np.isnan(x) | np.isnan(y)
+        u_cal = np.where(invalid, 0, u)
+        a[invalid] = 0
+        w = np.sqrt(w)
+        a = np.einsum("...m,...mr->...mr", w, a)
+        u_cal = np.einsum("...m,...m->...m", w, u_cal)
+
+        a_inv = np.linalg.pinv(a)
+        intercept, dux, duy = np.einsum("...rm,...m->r...", a_inv, u_cal)
+        return intercept, dux, duy
+
     def fit2d(x, y, u):
         a = np.stack([np.ones_like(x), x, y], axis=-1)
 
@@ -291,19 +305,35 @@ class Circle:
 
         return intercept, dux, duy
 
-    def fit2d_xr(self, x, y, u, sonde_dim="sonde_id"):
-        return xr.apply_ufunc(
-            self.__class__.fit2d,  # Call the static method without passing `self`
-            x,
-            y,
-            u,
-            input_core_dims=[
-                [sonde_dim],
-                [sonde_dim],
-                [sonde_dim],
-            ],  # Specify input dims
-            output_core_dims=[(), (), ()],  # Output dimensions as scalars
-        )
+    def fit2d_xr(self, x, y, u, w=None, sonde_dim="sonde_id"):
+        if w is None:
+            return xr.apply_ufunc(
+                self.__class__.fit2d,  # Call the static method without passing `self`
+                x,
+                y,
+                u,
+                input_core_dims=[
+                    [sonde_dim],
+                    [sonde_dim],
+                    [sonde_dim],
+                ],  # Specify input dims
+                output_core_dims=[(), (), ()],  # Output dimensions as scalars
+            )
+        else:
+            return xr.apply_ufunc(
+                self.__class__.fit2d_w,  # Call the static method without passing `self`
+                x,
+                y,
+                u,
+                w,
+                input_core_dims=[
+                    [sonde_dim],
+                    [sonde_dim],
+                    [sonde_dim],
+                    [sonde_dim],
+                ],  # Specify input dims
+                output_core_dims=[(), (), ()],  # Output dimensions as scalars
+            )
 
     def apply_fit2d(self, variables=None):
         if variables is None:
@@ -328,13 +358,21 @@ class Circle:
                 "derivative_of_" + standard_name + "_wrt_x",
                 "derivative_of_" + standard_name + "_wrt_y",
             ]
-
-            results = self.fit2d_xr(
-                x=self.circle_ds.x,
-                y=self.circle_ds.y,
-                u=self.circle_ds[par],
-                sonde_dim="sonde_id",
-            )
+            try:
+                results = self.fit2d_xr(
+                    x=self.circle_ds.x,
+                    y=self.circle_ds.y,
+                    u=self.circle_ds[par],
+                    w=self.circle_ds[f"{par}_weights"],
+                    sonde_dim="sonde_id",
+                )
+            except KeyError:
+                results = self.fit2d_xr(
+                    x=self.circle_ds.x,
+                    y=self.circle_ds.y,
+                    u=self.circle_ds[par],
+                    sonde_dim="sonde_id",
+                )
 
             for varname, result, long_name, use_name in zip(
                 varnames, results, long_names, use_names
