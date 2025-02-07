@@ -50,10 +50,12 @@ def qc_vars(qc):
 
 
 def test_profile_sparsity(qc_vars):
-    qc_vars.profile_sparsity(variable_dict={"q": 2, "p": 2, "rh": 4})
+    qc_vars.profile_sparsity(variable_dict={"q": 2, "p": 4, "rh": 4})
     assert qc_vars.qc_flags["p_profile_sparsity"]
     assert qc_vars.qc_flags["q_profile_sparsity"]
     assert not qc_vars.qc_flags["rh_profile_sparsity"]
+    assert qc_vars.qc_details["p_profile_sparsity_fraction"] >= 0
+    assert qc_vars.qc_details["rh_profile_sparsity_fraction"] >= 0
 
 
 def test_near_surface(qc_vars):

@@ -32,10 +32,10 @@ class QualityControl:
             self.qc_by_var.update({variable: dict(qc_flags={}, qc_details={})})
 
     def set_qc_ds(self, ds):
-        if "alt" in self.alt_dim:
-            self.qc_ds = ds.sortby(self.alt_dim, ascending=False)
+        if "time" in ds.dims:
+            self.qc_ds = ds.sortby("time")
         else:
-            self.qc_ds = ds.sortby(self.alt_dim)
+            self.qc_ds = ds.sortby(self.alt_dim, ascending=False)
 
     def get_is_floater(
         self,
@@ -179,7 +179,7 @@ class QualityControl:
 
 
         """
-        ds = self.qc_ds
+        ds = self.qc_ds.sortby(time_dimension)
         var_keys = set(variable_dict.keys())
         if set(var_keys) != set(self.qc_vars.keys()):
             var_keys = set(var_keys) & set(self.qc_vars.keys())
