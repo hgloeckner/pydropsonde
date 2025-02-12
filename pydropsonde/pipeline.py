@@ -262,8 +262,8 @@ def create_and_populate_circle_object(
         )
 
         circle_ds = gridded.l3_ds.where(
-            (gridded.l3_ds["launch_time"] > np.datetime64(segment["start"]))
-            & (gridded.l3_ds["launch_time"] < np.datetime64(segment["end"])),
+            (gridded.l3_ds["sonde_time"] > np.datetime64(segment["start"]))
+            & (gridded.l3_ds["sonde_time"] < np.datetime64(segment["end"])),
             drop=True,
         )
         circle_ds = xr.concat(

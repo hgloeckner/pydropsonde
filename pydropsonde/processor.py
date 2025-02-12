@@ -708,7 +708,7 @@ class Sonde:
         """
         sonde_attrs = {
             "platform_id": self.platform_id,
-            "launch_time_(UTC)": (
+            "sonde_time": (
                 str(self.aspen_ds.launch_time.values)
                 if hasattr(self.aspen_ds, "launch_time")
                 else np.datetime64(self.aspen_ds.base_time.values)
@@ -1555,7 +1555,7 @@ class Sonde:
                 essential_attrs = hh.l3_coords
             except AttributeError:
                 essential_attrs = {
-                    "launch_time": {
+                    "sonde_time": {
                         "time_zone": "UTC",
                         "long_name": "dropsonde launch time",
                     }
@@ -1569,13 +1569,12 @@ class Sonde:
                 ds = ds.assign(
                     {var_name: (self.sonde_dim, [l2_ds.attrs[attr]], var_attrs)}
                 )
-
         ds = ds.assign(
             dict(
-                launch_time=(
+                sonde_time=(
                     self.sonde_dim,
-                    ds.launch_time.astype(np.datetime64).values,
-                    essential_attrs["launch_time"],
+                    [np.datetime64(self.launch_time, "ns")],
+                    essential_attrs["sonde_time"],
                 )
             )
         )
