@@ -94,6 +94,7 @@ class Sonde:
         self.qc = QualityControl()
         if self.launch_time is not None:
             self.sort_index = self.launch_time
+        self.sonde_dim = "sonde"
 
     def add_flight_id(self, flight_id: str, flight_template: str = None) -> None:
         """Sets attribute of flight ID
@@ -947,7 +948,7 @@ class Sonde:
             ds=ds,
             dir=l2_dir,
             filename=self.l2_filename,
-            object_dim="sonde_id",
+            object_dim=self.sonde_dim,
             alt_dim="time",
         )
         return self
@@ -984,9 +985,7 @@ class Sonde:
         Returns:
             self: A sonde object with the updated `interim_l3_ds` attribute.
         """
-        self.interim_l3_ds = self.l2_ds.assign_coords(
-            {"sonde_id": ("sonde_id", [self.l2_ds.sonde_id.values])}
-        ).sortby("time")
+        self.interim_l3_ds = self.l2_ds.sortby("time")
 
         return self
 
@@ -1104,7 +1103,10 @@ class Sonde:
             Returns the sonde object with integrated water vapour added to the interim l3 dataset.
         """
         self.interim_l3_ds = hh.calc_iwv(
-            self.interim_l3_ds, qc_var=["rh_qc", "ta_qc"], alt_dim=self.alt_dim
+            self.interim_l3_ds,
+            qc_var=["rh_qc", "ta_qc"],
+            alt_dim=self.alt_dim,
+            sonde_dim=self.sonde_dim,
         )
 
         return self
@@ -1223,7 +1225,7 @@ class Sonde:
             self: The instance of the object with the updated dataset.
         """
         alt_dim = self.alt_dim
-        self.interim_l3_ds = (self.interim_l3_ds.swap_dims({"time": alt_dim})).load()
+        self.interim_l3_ds = self.interim_l3_ds.swap_dims({"time": alt_dim})
         return self
 
     def remove_non_mono_incr_alt(self, bottom_up=True):
@@ -1522,17 +1524,17 @@ class Sonde:
         self.interim_l3_ds = ds.assign(
             {
                 "sonde_id": (
-                    "sonde_id",
+                    self.sonde_dim,
                     [source_ds.sonde_id.values],
                     source_ds.sonde_id.attrs,
                 ),
                 "platform_id": (
-                    "sonde_id",
+                    self.sonde_dim,
                     [source_ds.platform_id.values],
                     source_ds.platform_id.attrs,
                 ),
                 "flight_id": (
-                    "sonde_id",
+                    self.sonde_dim,
                     [source_ds.flight_id.values],
                     source_ds.flight_id.attrs,
                 ),
@@ -1564,12 +1566,14 @@ class Sonde:
             var_name = splt[0][:-1]
             if var_name in list(essential_attrs.keys()):
                 var_attrs = essential_attrs[var_name]
-                ds = ds.assign({var_name: ("sonde_id", [l2_ds.attrs[attr]], var_attrs)})
+                ds = ds.assign(
+                    {var_name: (self.sonde_dim, [l2_ds.attrs[attr]], var_attrs)}
+                )
 
         ds = ds.assign(
             dict(
                 launch_time=(
-                    "sonde_id",
+                    self.sonde_dim,
                     ds.launch_time.astype(np.datetime64).values,
                     essential_attrs["launch_time"],
                 )
@@ -1588,7 +1592,7 @@ class Sonde:
         """
         ds = self.interim_l3_ds
         new_coords = {
-            coord: ("sonde_id", np.reshape(ds[coord].values, (1,)), ds[coord].attrs)
+            coord: (self.sonde_dim, np.reshape(ds[coord].values, (1,)), ds[coord].attrs)
             for coord in hh.l3_coords
             if coord in ds.variables
         }
@@ -1612,7 +1616,7 @@ class Sonde:
         ds = self.interim_l3_ds
 
         for var in ds.variables:
-            if var != "sonde_id":
+            if (var != self.sonde_dim) and (var != "sonde_id"):
                 ds[var].attrs.pop("ancillary_variables", None)
         if keep is None:
             keep = []
@@ -1659,7 +1663,7 @@ class Sonde:
                 )
                 keep = []
         keep = keep + ["sonde_qc"]
-        ds_qc = self.interim_l2_ds[keep].expand_dims("sonde_id")
+        ds_qc = self.interim_l2_ds[keep].expand_dims(self.sonde_dim)
         self.interim_l3_ds = xr.merge([ds, ds_qc])
 
         return self
@@ -1702,7 +1706,7 @@ class Sonde:
             ds=ds,
             dir=self.interim_l3_dir,
             filename=self.interim_l3_filename,
-            object_dim="sonde_id",
+            object_dim=self.sonde_dim,
             alt_dim=self.alt_dim,
         )
 
@@ -1725,8 +1729,8 @@ class Sonde:
             ds = ds.assign_coords(
                 {
                     coord: (
-                        ("sonde_id",),
-                        np.full(ds.sizes["sonde_id"], np.nan),
+                        (self.sonde_dim,),
+                        np.full(ds.sizes[self.sonde_dim], np.nan),
                         hh.l3_coords[coord],
                     )
                 }
@@ -1829,7 +1833,7 @@ class Gridded:
         self.history = new_hist
         return self
 
-    def add_alt_dim(self):
+    def add_dim_names(self):
         """
         Adds altitude dimension from the first sonde to the Gridded object.
 
@@ -1840,6 +1844,7 @@ class Gridded:
         """
         sonde = list(self.sondes.values())[0]
         self.alt_dim = sonde.alt_dim
+        self.sonde_dim = sonde.sonde_dim
         return self
 
     def check_broken(self):
@@ -1878,7 +1883,7 @@ class Gridded:
         try:
             ds = xr.concat(
                 list_of_l2_ds,
-                dim="sonde_id",
+                dim=self.sonde_dim,
                 join="exact",
                 combine_attrs="drop_conflicts",
             ).sortby(sortby)
@@ -1890,8 +1895,8 @@ class Gridded:
                 list_of_l2_ds[i] = l2_ds.assign_coords(
                     {
                         coord: (
-                            ("sonde_id",),
-                            np.full(ds.sizes["sonde_id"], np.nan),
+                            (self.sonde_dim,),
+                            np.full(ds.sizes[self.sonde_dim], np.nan),
                             coords[coord],
                         )
                         for coord in missing_coords
@@ -1899,7 +1904,7 @@ class Gridded:
                 )
             ds = xr.concat(
                 list_of_l2_ds,
-                dim="sonde_id",
+                dim=self.sonde_dim,
                 join="exact",
                 combine_attrs="drop_conflicts",
             ).sortby(sortby)
@@ -2018,7 +2023,7 @@ class Gridded:
             ds=self.concat_sonde_ds,
             dir=l3_dir,
             filename=self.l3_filename,
-            object_dim="sonde_id",
+            object_dim=self.sonde_dim,
             alt_dim=self.alt_dim,
         )
         return self

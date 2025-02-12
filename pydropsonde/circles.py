@@ -23,6 +23,7 @@ class Circle:
     platform_id: str
     segment_id: str
     alt_dim: str
+    sonde_dim: str
 
     def drop_m_N_vars(self):
         """
@@ -137,8 +138,8 @@ class Circle:
             circle_lon=([], self.clon, circle_lon_attrs),
             circle_lat=([], self.clat, circle_lat_attrs),
             circle_radius=([], self.crad, circle_radius_attrs),
-            x=(["sonde_id", self.alt_dim], delta_x.values, delta_x_attrs),
-            y=(["sonde_id", self.alt_dim], delta_y.values, delta_y_attrs),
+            x=([self.sonde_dim, self.alt_dim], delta_x.values, delta_x_attrs),
+            y=([self.sonde_dim, self.alt_dim], delta_y.values, delta_y_attrs),
         )
 
         self.circle_ds = self.circle_ds.assign(new_vars)
@@ -157,7 +158,7 @@ class Circle:
 
         return intercept, dux, duy
 
-    def fit2d_xr(self, x, y, u, sonde_dim="sonde_id"):
+    def fit2d_xr(self, x, y, u, sonde_dim="sonde"):
         return xr.apply_ufunc(
             self.__class__.fit2d,  # Call the static method without passing `self`
             x,
@@ -199,7 +200,7 @@ class Circle:
                 x=self.circle_ds.x,
                 y=self.circle_ds.y,
                 u=self.circle_ds[par],
-                sonde_dim="sonde_id",
+                sonde_dim=self.sonde_dim,
             )
 
             for varname, result, long_name, use_name in zip(
@@ -230,7 +231,7 @@ class Circle:
         self.circle_ds = ds
         return self
 
-    def add_density(self, sonde_dim="sonde_id", alt_dim="gpsalt"):
+    def add_density(self):
         """
         Calculate and add the density to the circle dataset.
 

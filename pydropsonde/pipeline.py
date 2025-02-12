@@ -257,8 +257,8 @@ def create_and_populate_circle_object(
     circles = {}
 
     for segment in gridded.segments:
-        extra_sondes = gridded.l3_ds.sel(
-            sonde_id=gridded.l3_ds.sonde_id.isin(segment.get("extra_sondes"))
+        extra_sondes = gridded.l3_ds.where(
+            gridded.l3_ds["sonde_id"].isin(segment.get("extra_sondes")), drop=True
         )
 
         circle_ds = gridded.l3_ds.where(
@@ -268,7 +268,7 @@ def create_and_populate_circle_object(
         )
         circle_ds = xr.concat(
             [circle_ds, extra_sondes],
-            dim="sonde_id",
+            dim=gridded.sonde_dim,
             join="exact",
             combine_attrs="no_conflicts",
         )
@@ -279,6 +279,7 @@ def create_and_populate_circle_object(
                 platform_id=segment["platform_id"],
                 segment_id=segment["segment_id"],
                 alt_dim=gridded.alt_dim,
+                sonde_dim=gridded.sonde_dim,
                 clon=segment.get("clon"),
                 clat=segment.get("clat"),
                 crad=segment.get("radius"),
@@ -581,7 +582,7 @@ pipeline = {
             "check_pydropsonde_version",
             "check_broken",
             "add_history_to_ds",
-            "add_alt_dim",
+            "add_dim_names",
             "concat_sondes",
             "get_l3_dir",
             "get_l3_filename",
