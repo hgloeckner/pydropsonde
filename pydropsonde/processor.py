@@ -1876,7 +1876,12 @@ class Gridded:
             sortby = list(hh.l3_coords.keys())[0]
         list_of_l2_ds = [sonde.interim_l3_ds for sonde in self.sondes.values()]
         try:
-            ds = xr.concat(list_of_l2_ds, dim="sonde_id", join="exact").sortby(sortby)
+            ds = xr.concat(
+                list_of_l2_ds,
+                dim="sonde_id",
+                join="exact",
+                combine_attrs="drop_conflicts",
+            ).sortby(sortby)
         except AttributeError:
             if coords is None:
                 coords = hh.l3_coords
@@ -1892,7 +1897,12 @@ class Gridded:
                         for coord in missing_coords
                     }
                 )
-            ds = xr.concat(list_of_l2_ds, dim="sonde_id", join="exact").sortby(sortby)
+            ds = xr.concat(
+                list_of_l2_ds,
+                dim="sonde_id",
+                join="exact",
+                combine_attrs="drop_conflicts",
+            ).sortby(sortby)
 
         if hasattr(self, "global_attrs"):
             ds = ds.assign_attrs(self.global_attrs)
