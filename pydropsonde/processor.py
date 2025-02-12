@@ -742,7 +742,7 @@ class Sonde:
             "long_name": "sonde identifier",
             "cf_role": "trajectory_id",
         }
-        ds = ds.assign_coords({variable_name: self.serial_id})
+        ds = ds.assign({variable_name: self.serial_id})
         ds[variable_name] = ds[variable_name].assign_attrs(attrs)
         self.interim_l2_ds = ds
 
@@ -771,7 +771,7 @@ class Sonde:
             description="unique platform ID",
             long_name="platform identifier",
         )
-        ds = ds.assign_coords({variable_name: self.platform_id})
+        ds = ds.assign({variable_name: self.platform_id})
         ds[variable_name] = ds[variable_name].assign_attrs(attrs)
         self.interim_l2_ds = ds
         return self
@@ -800,7 +800,7 @@ class Sonde:
             long_name="flight identifier",
         )
 
-        ds = ds.assign_coords({variable_name: self.flight_id})
+        ds = ds.assign({variable_name: self.flight_id})
         ds[variable_name] = ds[variable_name].assign_attrs(attrs)
         self.interim_l2_ds = ds
         return self
@@ -1519,7 +1519,7 @@ class Sonde:
         """
         ds = self.interim_l3_ds
         source_ds = self.l2_ds
-        self.interim_l3_ds = ds.assign_coords(
+        self.interim_l3_ds = ds.assign(
             {
                 "sonde_id": (
                     "sonde_id",
