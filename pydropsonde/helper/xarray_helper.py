@@ -37,11 +37,21 @@ def get_chunks(ds, var, object_dim="sonde_id", alt_dim="alt"):
     """
     get standard chunks for one object_dim (like sonde_id or circle_id) and one height dimension
     """
-    chunks = {
-        object_dim: min(256, ds.sonde_id.size),
-        alt_dim: min(400, ds[alt_dim].size),
-    }
-
+    if object_dim not in ds[var].dims:
+        chunks = {
+            object_dim: 1,
+            alt_dim: ds[alt_dim].size,
+        }
+    elif alt_dim not in ds[var].dims:
+        chunks = {
+            object_dim: ds[object_dim].size,
+            alt_dim: 1,
+        }
+    else:
+        chunks = {
+            object_dim: min(750, ds[object_dim].size),
+            alt_dim: min(750, ds[alt_dim].size),
+        }
     return tuple((chunks[d] for d in ds[var].dims))
 
 
