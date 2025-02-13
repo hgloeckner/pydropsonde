@@ -29,7 +29,14 @@ def add_ancillary_var(ds, variable, anc_name):
 
 
 def remove_above_alt(ds, variables, alt_dim, maxalt):
-    return ds.assign({var: ds[var].where(ds[alt_dim] < maxalt) for var in variables})
+    return ds.assign(
+        {
+            var: xr.where(
+                (ds[alt_dim] < maxalt) | (np.isnan(ds[alt_dim])), ds[var], np.nan
+            )
+            for var in variables
+        }
+    )
 
 
 # encode and write files
