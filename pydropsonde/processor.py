@@ -1162,7 +1162,7 @@ class Sonde:
         self.alt_dim = alt_dim
         return self
 
-    def replace_alt_dim(self, drop_nan=True):
+    def replace_alt_dim(self, interpolate=True):
         """
         Replaces the altitude dimension in the dataset if one altitude coordinate is worse than the other
 
@@ -1209,6 +1209,10 @@ class Sonde:
             self.qc.qc_flags.update({"altitude_source": self.alt_dim})
         self.alt_dim = "altitude"
         self.qc.alt_dim = "altitude"
+        if hh.get_bool(interpolate):
+            ds = ds.assign(
+                {"altitude": ds["altitude"].sortby("time").interpolate_na(dim="time")}
+            )
         self.interim_l2_ds = ds
         return self
 
