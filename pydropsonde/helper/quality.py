@@ -627,12 +627,24 @@ class QualityControl:
         return ds_out
 
     def add_sonde_flag_to_ds(self, ds, qc_name):
-        if all(self.qc_flags.values()):
+        flags = self.qc_flags.copy()
+        flags.pop("altitude_below_aircraft", None)
+        flags.pop("alt_below_aircraft", None)
+        flags.pop("gpsalt_below_aircraft", None)
+        if all(flags.values()):
             qc_val = 0
-        elif any(self.qc_flags.values()) and (
-            self.qc_flags.get(f"{self.alt_dim}_values", True)
-        ):
-            qc_val = 2
+        elif any(flags.values()):
+            flags.pop("p_low_physics", None)
+            flags.pop("rh_low_physics", None)
+            flags.pop("ta_low_physics", None)
+            if all(flags.values()):
+                qc_val = 1
+            else:
+                flags.pop("alt_near_gpsalt", None)
+                if any(flags.values()):
+                    qc_val = 2
+                else:
+                    qc_val = 1
         else:
             qc_val = 1
 
