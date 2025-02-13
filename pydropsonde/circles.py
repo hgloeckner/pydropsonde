@@ -234,26 +234,26 @@ class Circle:
         self.circle_ds = ds
         return self
 
-
     def add_regression_stderr(self, variables=None):
         """
         Calculation of regression standard error, following Lenschow, Donald H and Savic-Jovcic,Verica and Stevens, Bjorn 2007
 
         """
         alt_dim = self.alt_dim
+        sonde_dim = self.sonde_dim
         if variables is None:
-            variables = ["u", "v", "q", "ta", "p", "density"]
+            variables = ["u", "v", "q", "ta", "p"]
         ds = self.circle_ds
 
-        dx_denominator = ((ds.x - ds.x.mean(dim="sonde_id")) ** 2).sum(dim="sonde_id")
-        dy_denominator = ((ds.y - ds.y.mean(dim="sonde_id")) ** 2).sum(dim="sonde_id")
+        dx_denominator = ((ds.x - ds.x.mean(dim=sonde_dim)) ** 2).sum(dim=sonde_dim)
+        dy_denominator = ((ds.y - ds.y.mean(dim=sonde_dim)) ** 2).sum(dim=sonde_dim)
 
         for var in variables:
             var_err = (
                 ds[var]
                 - (ds[f"mean_{var}"] + ds[f"d{var}dx"] * ds.x + ds[f"d{var}dy"] * ds.y)
             ) ** 2
-            nominator = (var_err) / (var_err.count(dim="sonde_id") - 3)
+            nominator = (var_err) / (var_err.count(dim=sonde_dim) - 3)
 
             se_x = np.sqrt(nominator / dx_denominator)
             se_y = np.sqrt(nominator / dy_denominator)
@@ -269,7 +269,7 @@ class Circle:
             ds = ds.assign(
                 {
                     f"se_d{var}dx": (
-                        ["sonde_id", alt_dim],
+                        [sonde_dim, alt_dim],
                         se_x.values,
                         dict(
                             standard_name=f"{dvardx_std_name} standard_error",
@@ -277,7 +277,7 @@ class Circle:
                         ),
                     ),
                     f"se_d{var}dy": (
-                        ["sonde_id", alt_dim],
+                        [sonde_dim, alt_dim],
                         se_y.values,
                         dict(
                             standard_name=f"{dvardy_std_name} standard_error",
@@ -293,7 +293,7 @@ class Circle:
         ds = ds.assign(
             {
                 "se_div": (
-                    ["sonde_id", alt_dim],
+                    [sonde_dim, alt_dim],
                     np.sqrt(ds.se_dudx**2 + ds.se_dudy**2).values,
                     dict(standard_name=f"{div_std_name} standard_error", units=unit),
                 )
