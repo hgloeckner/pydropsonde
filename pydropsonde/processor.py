@@ -1045,6 +1045,7 @@ class Sonde:
         self.interim_l3_ds = hx.remove_above_alt(
             self.interim_l3_ds, variables, alt_dim=self.alt_dim, maxalt=maxalt
         )
+
         return self
 
     def add_q_and_theta_to_l2_ds(self):
@@ -1177,6 +1178,7 @@ class Sonde:
         """
         alt_dim = self.alt_dim
         ds = self.interim_l2_ds
+        alt_attrs = ds[alt_dim].attrs
         if (not self.qc.qc_flags["p_low_physics"]) and (np.all(np.isnan(ds["gpsalt"]))):
             print(
                 f"No gpsalt values and no reliable alt values.  Sonde {self.serial_id} from {self.flight_id} is dropped"
@@ -1207,13 +1209,14 @@ class Sonde:
             ds = ds.rename({"gpsalt": "altitude"}).drop_vars(["alt"])
         else:
             self.qc.qc_flags.update({"altitude_source": self.alt_dim})
-        self.alt_dim = "altitude"
-        self.qc.alt_dim = "altitude"
         if hh.get_bool(interpolate):
             ds = ds.assign(
                 {"altitude": ds["altitude"].sortby("time").interpolate_na(dim="time")}
             )
+        ds.altitude.attrs.update(alt_attrs)
         self.interim_l2_ds = ds
+        self.alt_dim = "altitude"
+        self.qc.alt_dim = "altitude"
         return self
 
     def swap_alt_dimension(self):
@@ -1230,6 +1233,7 @@ class Sonde:
         """
         alt_dim = self.alt_dim
         self.interim_l3_ds = self.interim_l3_ds.swap_dims({"time": alt_dim})
+
         return self
 
     def remove_non_mono_incr_alt(self, bottom_up=True):
@@ -1262,7 +1266,7 @@ class Sonde:
                     elif ~np.isnan(alt[idx]):
                         curr_alt = alt[idx]
                     idx += 1
-                ds = ds.assign({alt_dim: ("time", alt[::-1])})
+                ds = ds.assign({alt_dim: ("time", alt[::-1], ds[alt_dim].attrs)})
 
             else:
                 alt = ds[alt_dim]
@@ -1494,6 +1498,7 @@ class Sonde:
             }
         )
         self.interim_l3_ds = ds
+
         return self
 
     def add_Nm_to_vars(self, add_m=False):
@@ -1584,6 +1589,7 @@ class Sonde:
         )
         self.attrs = ds.attrs.keys()
         self.interim_l3_ds = ds
+
         return self
 
     def make_attr_coordinates(self):

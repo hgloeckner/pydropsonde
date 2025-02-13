@@ -31,8 +31,12 @@ def add_ancillary_var(ds, variable, anc_name):
 def remove_above_alt(ds, variables, alt_dim, maxalt):
     return ds.assign(
         {
-            var: xr.where(
-                (ds[alt_dim] < maxalt) | (np.isnan(ds[alt_dim])), ds[var], np.nan
+            var: (
+                ds[var].dims,
+                xr.where(
+                    (ds[alt_dim] < maxalt) | (np.isnan(ds[alt_dim])), ds[var], np.nan
+                ).values,
+                ds[var].attrs,
             )
             for var in variables
         }

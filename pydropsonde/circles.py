@@ -44,6 +44,7 @@ class Circle:
             )
         )
         self.circle_ds = ds
+
         return self
 
     def get_xy_coords_for_circles(self):
@@ -143,6 +144,7 @@ class Circle:
         )
 
         self.circle_ds = self.circle_ds.assign(new_vars)
+
         return self
 
     @staticmethod
