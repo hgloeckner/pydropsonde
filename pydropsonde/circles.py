@@ -218,6 +218,74 @@ class Circle:
         self.circle_ds = ds
         return self
 
+    def extrapolate_na_sondes(self, max_alt=300):
+        """
+        CAREFUL: This should be used after interpolate_na_sondes, because of the p interpolation
+        """
+        ds = self.circle_ds.reset_coords().drop_attrs(deep=False)
+
+        constant_vars = ["u", "v", "q", "theta"]
+        sondes = []
+        for sonde in ds[self.sonde_dim]:
+            var_ds_list = []
+            for var in constant_vars:
+                sonde_ds = ds[var].sel({self.sonde_dim: sonde})
+                if sonde_ds.count() > 0:
+                    lowest_val = (
+                        sonde_ds.dropna(dim=self.alt_dim)
+                        .sel({self.alt_dim: 0}, method="nearest")
+                        .values
+                    )
+                    if any(sonde_ds.where(sonde_ds == lowest_val).altitude <= max_alt):
+                        sonde_ds = xr.where(
+                            sonde_ds[self.alt_dim] < max_alt,
+                            sonde_ds.fillna(lowest_val),
+                            sonde_ds,
+                        )
+                    sonde_ds.name = var
+                    sonde_ds.attrs = ds[var].attrs
+                var_ds_list.append(sonde_ds)
+
+            p_log = np.log(ds.p.sel({self.sonde_dim: sonde}))
+            if p_log.count() > 0:
+                lowest_p = (
+                    p_log.dropna(dim=self.alt_dim)
+                    .sel({self.alt_dim: 0}, method="nearest")
+                    .values
+                )
+                if any(p_log.where(p_log == lowest_p).altitude <= max_alt):
+                    p_500 = (
+                        p_log.sel({self.alt_dim: slice(0, max_alt + 100)})
+                        .interpolate_na(
+                            dim=self.alt_dim,
+                            method="linear",
+                            max_gap=int(max_alt),
+                            fill_value="extrapolate",
+                        )
+                        .broadcast_like(p_log)
+                    )
+                pds = xr.where(
+                    p_log[self.alt_dim] < max_alt + 100, np.exp(p_500), np.exp(p_log)
+                )
+                pds.name = "p"
+                pds.attrs = p_log.attrs
+            else:
+                pds = np.exp(p_log)
+            var_ds_list.append(pds)
+            sondes.append(xr.merge(var_ds_list, combine_attrs="drop_conflicts"))
+
+        ds = xr.concat(sondes, dim=self.sonde_dim)
+        ds[self.alt_dim].attrs = self.circle_ds[self.alt_dim].attrs
+        ds = ds.assign_attrs(self.circle_ds.attrs)
+
+        self.circle_ds = xr.merge(
+            [ds, self.circle_ds],
+            join="exact",
+            compat="override",
+            combine_attrs="identical",
+        )
+        return self
+
     def interpolate_na_sondes(self, method="akima", max_gap=1500, thresh=4):
         if method is not None:
             ds = self.circle_ds.swap_dims({self.sonde_dim: "sonde_id"})
