@@ -223,61 +223,84 @@ class Circle:
         CAREFUL: This should be used after interpolate_na_sondes, because of the p interpolation
         """
         ds = self.circle_ds.reset_coords().drop_attrs(deep=False)
+        constant_vars = [var for var in ["u", "v", "q", "theta"] if var in ds.variables]
 
-        constant_vars = ["u", "v", "q", "theta"]
-        sondes = []
-        for sonde in ds[self.sonde_dim]:
+        def extrapolate_var(ds, var):
             var_ds_list = []
-            for var in constant_vars:
+            for sonde in ds[self.sonde_dim]:
                 sonde_ds = ds[var].sel({self.sonde_dim: sonde})
                 if sonde_ds.count() > 0:
+                    if self.alt_dim == "p":
+                        lowest = 105000
+                    else:
+                        lowest = 0
                     lowest_val = (
                         sonde_ds.dropna(dim=self.alt_dim)
-                        .sel({self.alt_dim: 0}, method="nearest")
+                        .sel({self.alt_dim: lowest}, method="nearest")
                         .values
                     )
-                    if any(sonde_ds.where(sonde_ds == lowest_val).altitude <= max_alt):
+                    if any(
+                        sonde_ds.where(sonde_ds == lowest_val)[self.alt_dim] >= max_alt
+                    ) and (self.alt_dim == "p"):
+                        sonde_ds = xr.where(
+                            sonde_ds[self.alt_dim] > max_alt,
+                            sonde_ds.fillna(lowest_val),
+                            sonde_ds,
+                        )
+                    elif any(
+                        sonde_ds.where(sonde_ds == lowest_val)[self.alt_dim] <= max_alt
+                    ):
                         sonde_ds = xr.where(
                             sonde_ds[self.alt_dim] < max_alt,
                             sonde_ds.fillna(lowest_val),
                             sonde_ds,
                         )
+
                     sonde_ds.name = var
                     sonde_ds.attrs = ds[var].attrs
                 var_ds_list.append(sonde_ds)
+            return xr.concat(var_ds_list, dim=self.sonde_dim)
 
-            p_log = np.log(ds.p.sel({self.sonde_dim: sonde}))
-            if p_log.count() > 0:
-                lowest_p = (
-                    p_log.dropna(dim=self.alt_dim)
-                    .sel({self.alt_dim: 0}, method="nearest")
-                    .values
-                )
-                if any(p_log.where(p_log == lowest_p).altitude <= max_alt):
-                    p_500 = (
-                        p_log.sel({self.alt_dim: slice(0, max_alt + 100)})
-                        .interpolate_na(
-                            dim=self.alt_dim,
-                            method="linear",
-                            max_gap=int(max_alt),
-                            fill_value="extrapolate",
-                        )
-                        .broadcast_like(p_log)
+        variable_datasets = []
+        for var in constant_vars:
+            variable_datasets.append(extrapolate_var(ds, var))
+        if self.alt_dim != "p":
+            var_ds_list = []
+            for sonde in ds[self.sonde_dim]:
+                p_log = np.log(ds.p.sel({self.sonde_dim: sonde}))
+                if p_log.count() > 0:
+                    lowest_p = (
+                        p_log.dropna(dim=self.alt_dim)
+                        .sel({self.alt_dim: 0}, method="nearest")
+                        .values
                     )
-                pds = xr.where(
-                    p_log[self.alt_dim] < max_alt + 100, np.exp(p_500), np.exp(p_log)
-                )
-                pds.name = "p"
-                pds.attrs = p_log.attrs
-            else:
-                pds = np.exp(p_log)
+                    if any(p_log.where(p_log == lowest_p)[self.alt_dim] <= max_alt):
+                        p_500 = (
+                            p_log.sel({self.alt_dim: slice(0, max_alt + 100)})
+                            .interpolate_na(
+                                dim=self.alt_dim,
+                                method="linear",
+                                max_gap=int(max_alt),
+                                fill_value="extrapolate",
+                            )
+                            .broadcast_like(p_log)
+                        )
+                    pds = xr.where(
+                        p_log[self.alt_dim] < max_alt + 100,
+                        np.exp(p_500),
+                        np.exp(p_log),
+                    )
+                    pds.name = "p"
+                    pds.attrs = p_log.attrs
+                else:
+                    pds = np.exp(p_log)
+
             var_ds_list.append(pds)
-            sondes.append(xr.merge(var_ds_list, combine_attrs="drop_conflicts"))
+            variable_datasets.append(xr.concat(var_ds_list, dim=self.sonde_dim))
 
-        ds = xr.concat(sondes, dim=self.sonde_dim)
+        ds = xr.merge(variable_datasets)
         ds[self.alt_dim].attrs = self.circle_ds[self.alt_dim].attrs
-        ds = ds.assign_attrs(self.circle_ds.attrs)
-
+        ds.attrs = self.circle_ds.attrs
         self.circle_ds = xr.merge(
             [ds, self.circle_ds],
             join="exact",
@@ -385,18 +408,22 @@ class Circle:
         assign_dict = {}
 
         for par in variables:
+            if par in self.circle_ds.dims:
+                continue
             try:
                 long_name = self.circle_ds[par].attrs.get("long_name")
             except KeyError:
                 pass
             else:
-                standard_name = self.circle_ds[par].attrs.get("standard_name")
+                if long_name is None:
+                    long_name = par
+                standard_name = self.circle_ds[par].attrs.get("standard_name", "")
                 varnames = [
                     par + "_mean",
                     par + "_d" + par + "dx",
                     par + "_d" + par + "dy",
                 ]
-                var_units = self.circle_ds[par].attrs.get("units", None)
+                var_units = self.circle_ds[par].attrs.get("units", "")
                 long_names = [
                     "circle mean of " + long_name,
                     "zonal gradient of " + long_name,
@@ -736,10 +763,24 @@ class Circle:
         """
         ds = self.circle_ds
         alt_dim = self.alt_dim
-        div = ds.div.where(~np.isnan(ds.div), drop=True).sortby(alt_dim)
-        p = ds.p_mean.where(~np.isnan(ds.div), drop=True).sortby(alt_dim)
-        zero_vel = xr.DataArray(data=[0], dims=alt_dim, coords={alt_dim: [0]})
-        pres_diff = xr.concat([zero_vel, p.diff(dim=alt_dim)], dim=alt_dim)
+        if alt_dim != "p":
+            div = ds.div.where(~np.isnan(ds.div), drop=True).sortby(alt_dim)
+            p = ds.p_mean.where(~np.isnan(ds.div), drop=True).sortby(alt_dim)
+            zero_vel = xr.DataArray(data=[0], dims=alt_dim, coords={alt_dim: [0]})
+            pres_diff = xr.concat([zero_vel, p.diff(dim=alt_dim)], dim=alt_dim)
+        else:
+            div = ds.div.where(~np.isnan(ds.div), drop=True).sortby(
+                alt_dim, ascending=False
+            )
+            p = ds.p.where(~np.isnan(ds.div), drop=True).sortby("p", ascending=False)
+            try:
+                max_p = p.max().values
+            except ValueError:
+                max_p = np.nan
+            zero_vel = xr.DataArray(data=[0], dims=alt_dim, coords={alt_dim: [max_p]})
+            pres_diff = xr.concat(
+                [zero_vel, div[alt_dim].diff(dim=alt_dim)], dim=alt_dim
+            )
         del_omega = -div * pres_diff.values
         omega = del_omega.cumsum(dim=alt_dim) * 0.01 * 60**2
         omega_attrs = {
