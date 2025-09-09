@@ -1791,6 +1791,21 @@ class Sonde:
         self.interim_l3_ds = ds
         return self
 
+    def drop_empty(self):
+        ds = self.interim_l3_ds
+        if (
+            ds.dropna(
+                dim=self.alt_dim, how="all", subset=["u", "v", "p", "ta", "rh"]
+            ).sizes[self.alt_dim]
+            == 0
+        ):
+            print(
+                f"sonde {ds.sonde_id.values} from {ds.flight_id.values} has no valid data after processing and is dropped"
+            )
+            return None
+        else:
+            return self
+
 
 @dataclass(order=True)
 class Gridded:

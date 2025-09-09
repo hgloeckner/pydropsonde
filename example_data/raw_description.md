@@ -22,4 +22,4 @@ There is another platform folder called P3. There is one sonde in that folder to
 
 ## overall expectation
 
-The example data level 3 should contain 12 sondes with data. The level 4 data should contain 2 circles, one of which should include circle products.
+The example data level 3 should contain 14 sondes with data (one is dropped because all data fields are empty). The level 4 data should contain 3 circles, one of which should include circle products.

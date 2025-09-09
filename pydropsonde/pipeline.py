@@ -582,6 +582,7 @@ pipeline = {
             "add_Nm_to_vars",
             "update_history_l3",
             "add_expected_coords",
+            "drop_empty",
             "save_interim_l3",
         ],
         "output": "sondes",
