@@ -1310,29 +1310,35 @@ class Sonde:
 
         ds = self.interim_l3_ds.sortby("time")
 
-        diff_array = ds[alt_dim].sortby("time").dropna(dim="time").diff(dim="time")
+        diff_array = ds[alt_dim].dropna(dim="time").diff(dim="time")
         if not np.all(diff_array <= 0):
             warnings.warn(
                 f"your altitude for {self} on {self.launch_time} is not sorted."
             )
             if bottom_up:
+                # sort by altitude
                 alt = ds[alt_dim].sortby("time", ascending=False).values
+
                 idx = (
-                    diff_array.sortby("time", ascending=False)
-                    .where(diff_array > 0)
+                    xr.where(
+                        diff_array.sortby("time", ascending=False) < 0,
+                        1,
+                        0,
+                    )
                     .argmin(dim="time")
                     .values
-                )
+                ) - 1
                 curr_alt = alt[idx]
                 idx = idx + 1
                 while idx < ds.sizes["time"]:
-                    if alt[idx] < curr_alt:
+                    if not alt[idx] > curr_alt:
                         alt[idx] = np.nan
                     elif ~np.isnan(alt[idx]):
                         curr_alt = alt[idx]
                     idx += 1
-                ds = ds.assign({alt_dim: ("time", alt[::-1], ds[alt_dim].attrs)})
 
+                ds = ds.assign({alt_dim: ("time", alt[::-1], ds[alt_dim].attrs)})
+                assert (ds[alt_dim].diff(dim="time").dropna(dim="time") < 0).all()
             else:
                 alt = ds[alt_dim]
                 curr_alt = alt.isel(time=0)
