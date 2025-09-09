@@ -1079,7 +1079,6 @@ class Sonde:
             self.interim_l3_ds, variables, alt_dim=self.alt_dim, maxalt=maxalt
         )
 
-        assert np.all(~np.isnan(self.interim_l3_ds[self.alt_dim].values))
         return self
 
     def remove_unphysical(self):
@@ -1101,7 +1100,6 @@ class Sonde:
                 )
         self.interim_l3_ds = ds
 
-        assert np.all(~np.isnan(self.interim_l3_ds[self.alt_dim].values))
         return self
 
     def add_q_and_theta_to_l2_ds(self):
@@ -1219,7 +1217,7 @@ class Sonde:
         self.alt_dim = alt_dim
         return self
 
-    def replace_alt_dim(self, interpolate=True):
+    def replace_alt_dim(self):
         """
         Replaces the altitude dimension in the dataset if one altitude coordinate is worse than the other
 
@@ -1272,14 +1270,7 @@ class Sonde:
             ds = ds.rename({"gpsalt": "altitude"}).drop_vars(["alt"])
         else:
             self.qc.qc_flags.update({"altitude_source": self.alt_dim})
-        if hh.get_bool(interpolate):
-            ds = ds.assign(
-                {
-                    "altitude": ds["altitude"]
-                    .sortby("time")
-                    .interpolate_na(dim="time", fill_value="extrapolate")
-                }
-            )
+
         alt_attrs["long_name"] = "altitude"
         alt_attrs["description"] = (
             "Best estimate from either GPS or pressure measurements. See details for each sonde in respective Level 2 dataset."
@@ -1288,7 +1279,6 @@ class Sonde:
         self.alt_dim = "altitude"
         self.qc.alt_dim = "altitude"
         self.interim_l3_ds = self.qc.add_alt_source_to_ds(ds)
-        assert np.all(~np.isnan(ds[self.alt_dim].values))
         return self
 
     def swap_alt_dimension(self, dropna=True):
@@ -1318,7 +1308,7 @@ class Sonde:
         """
         alt_dim = self.alt_dim
 
-        ds = self.interim_l3_ds
+        ds = self.interim_l3_ds.sortby("time")
 
         diff_array = ds[alt_dim].sortby("time").dropna(dim="time").diff(dim="time")
         if not np.all(diff_array <= 0):
@@ -1354,10 +1344,24 @@ class Sonde:
                 ds[alt_dim] = alt
 
         self.interim_l3_ds = ds
-
         return self
 
-    def interpolate_alt(
+    def interpolate_alt_dim(
+        self,
+        interpolate=True,
+    ):
+        if hh.get_bool(interpolate):
+            ds = self.interim_l3_ds.sortby("time")
+            self.interim_l3_ds = ds.assign(
+                {
+                    self.alt_dim: ds[self.alt_dim].interpolate_na(
+                        dim="time", fill_value="extrapolate"
+                    )
+                }
+            )
+        return self
+
+    def interpolate_variables_to_common_grid(
         self,
         interp_start=-5,
         interp_stop=14600,

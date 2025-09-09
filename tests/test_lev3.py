@@ -133,7 +133,7 @@ class TestGroup:
         self.sonde.interim_l3_ds = ds
         self.sonde.swap_alt_dimension()
 
-        new_sonde = self.sonde.interpolate_alt(
+        new_sonde = self.sonde.interpolate_variables_to_common_grid(
             interp_start=-5,
             interp_stop=36,
             interp_step=10,
