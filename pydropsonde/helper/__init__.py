@@ -231,10 +231,6 @@ def calc_q_from_rh_sonde(ds):
 
     Function to estimate specific humidity from the relative humidity, temperature and pressure in the given dataset.
     """
-    e_s = mtsvp.liq_hardy(ds.ta.values)
-    w_s = mtf.partial_pressure_to_mixing_ratio(e_s, ds.p.values)
-    w = ds.rh.values * w_s
-    q = physics.mr2q(w)
     try:
         q_attrs = ds.q.attrs
         q_attrs.update(
@@ -249,7 +245,15 @@ def calc_q_from_rh_sonde(ds):
             units="1",
             method="calculated from measured RH following Hardy 1998",
         )
-    ds = ds.assign(q=(ds.rh.dims, q, q_attrs))
+    ds = ds.assign(
+        q=(
+            ds.rh.dims,
+            mtf.relative_humidity_to_specific_humidity(
+                ds.rh, ds.p, ds.ta, es=mtsvp.liq_hardy
+            ).values,
+            q_attrs,
+        )
+    )
     return ds
 
 
@@ -265,10 +269,6 @@ def calc_q_from_rh(ds):
 
     Function to estimate specific humidity from the relative humidity, temperature and pressure in the given dataset.
     """
-    e_s = es_formular(ds.ta.values)
-    w_s = mtf.partial_pressure_to_mixing_ratio(e_s, ds.p.values)
-    w = ds.rh.values * w_s
-    q = physics.mr2q(w)
     try:
         q_attrs = ds.q.attrs
         q_attrs.update(
@@ -283,7 +283,15 @@ def calc_q_from_rh(ds):
             units="1",
             method=f"calculated from RH following {es_name}",
         )
-    ds = ds.assign(q=(ds.rh.dims, q, q_attrs))
+    ds = ds.assign(
+        q=(
+            ds.rh.dims,
+            mtf.relative_humidity_to_specific_humidity(
+                ds.rh, ds.p, ds.ta, es=es_formular
+            ).values,
+            q_attrs,
+        )
+    )
     return ds
 
 
@@ -300,10 +308,6 @@ def calc_rh_from_q(ds, alt_dim="altitude"):
     Function to estimate relative humidity from the specific humidity, temperature and pressure in the given dataset.
     """
     assert ds.p.attrs["units"] == "Pa"
-    e_s = es_formular(ds.ta.values)
-    w_s = mtf.partial_pressure_to_mixing_ratio(e_s, ds.p.values)
-    w = physics.q2mr(ds.q.values)
-    rh = w / w_s
     try:
         rh_attrs = ds.rh.attrs
         rh_attrs.update(
@@ -318,7 +322,15 @@ def calc_rh_from_q(ds, alt_dim="altitude"):
             units="1",
             method=f"recalculated from q following {es_name} after binning in {alt_dim}",
         )
-    ds = ds.assign(rh=(ds.q.dims, rh, rh_attrs))
+    ds = ds.assign(
+        rh=(
+            ds.q.dims,
+            mtf.specific_humidity_to_relative_humidity(
+                ds.q, ds.p, ds.ta, es=es_formular
+            ).values,
+            rh_attrs,
+        )
+    )
 
     return ds
 
@@ -429,7 +441,6 @@ def calc_T_from_theta(ds, alt_dim="altitude"):
     Function to estimate potential temperature from the temperature and pressure in the given dataset.
     """
     assert ds.p.attrs["units"] == "Pa"
-    ta = physics.theta2ta(ds.theta.values, ds.p.values)
 
     try:
         t_attrs = ds.ta.attrs
@@ -443,7 +454,7 @@ def calc_T_from_theta(ds, alt_dim="altitude"):
     t_attrs.update(
         dict(method=f"recalculated from theta and p after binning in {alt_dim}")
     )
-    ds = ds.assign(ta=(ds.theta.dims, ta, t_attrs))
+    ds = ds.assign(ta=(ds.theta.dims, mtf.theta2T(ds.theta, ds.p).values, t_attrs))
     return ds
 
 

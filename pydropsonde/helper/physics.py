@@ -50,31 +50,6 @@ def density_from_q(p, T, q):
     return p / ((Rd + (Rv - Rd) * q) * T)
 
 
-def theta2ta(theta, P, qv=0.0, ql=0.0, qi=0.0):
-    """Returns the temperature for an unsaturated moist fluid, given the potential temperature
-    (reverse of Bjorn stevens moist thermodynamicts theta())
-
-    Args:
-        T: temperature in kelvin
-        P: pressure in pascal
-        qv: specific vapor mass
-        ql: specific liquid mass
-        qi: specific ice mass
-
-    """
-    Rd = constants.dry_air_gas_constant
-    Rv = constants.water_vapor_gas_constant
-    cpd = constants.isobaric_dry_air_specific_heat
-    cpv = constants.isobaric_water_vapor_specific_heat
-    cl = constants.liquid_water_specific_heat
-    ci = constants.frozen_water_specific_heat
-    P0 = constants.P0
-
-    qd = 1.0 - qv - ql - qi
-    kappa = (qd * Rd + qv * Rv) / (qd * cpd + qv * cpv + ql * cl + qi * ci)
-    return theta / (P0 / P) ** kappa
-
-
 def integrate_water_vapor(p, q, T=None, z=None, axis=0):
     """Returns the integrated water vapor for given specific humidity
     Args:
