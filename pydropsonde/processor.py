@@ -1100,7 +1100,7 @@ class Sonde:
 
         return self
 
-    def add_q_and_theta_to_l2_ds(self):
+    def add_theta_to_l2_ds(self):
         """
         Adds potential temperature and specific humidity to the L2 dataset.
 
@@ -1116,15 +1116,14 @@ class Sonde:
         ds = self.interim_l3_ds
 
         ds = hh.calc_theta_from_T(ds)
-        ds = hh.calc_q_from_rh_sonde(ds)
 
         self.interim_l3_ds = ds
 
         return self
 
-    def recalc_rh_and_ta(self):
+    def recalc_q_and_ta(self):
         """
-        Recalculates relative humidity and temperature after the interpolation and
+        Recalculates specific humidity and temperature after the interpolation and
         adds it to the interim level 3 dataset
 
         Parameters
@@ -1138,7 +1137,7 @@ class Sonde:
         """
         ds = self.interim_l3_ds
         ds = hh.calc_T_from_theta(ds)
-        ds = hh.calc_rh_from_q(ds)
+        ds = hh.calc_q_from_rh_sonde(ds)
         self.interim_l3_ds = ds
         return self
 
@@ -1442,6 +1441,7 @@ class Sonde:
                 "v",
                 "q",
                 "p",
+                "rh",
                 "theta",
                 "lat",
                 "lon",
