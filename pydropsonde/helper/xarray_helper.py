@@ -39,6 +39,7 @@ def remove_above_alt(ds, variables, alt_dim, maxalt):
                 ds[var].attrs,
             )
             for var in variables
+            if var != alt_dim
         }
     )
 

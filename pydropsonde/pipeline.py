@@ -579,7 +579,7 @@ pipeline = {
             "make_attr_coordinates",
             "add_qc_to_interim_l3",
             "add_iwv",
-            "add_Nm_to_vars",
+            # "add_Nm_to_vars",
             "update_history_l3",
             "add_expected_coords",
             "drop_empty",

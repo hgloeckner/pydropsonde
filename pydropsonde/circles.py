@@ -34,6 +34,7 @@ class Circle:
         if variables is None:
             variables = [
                 "bin_average_time",
+                "interpolated_time",
                 "alt_near_gpsalt",
                 "alt_source",
                 "alt_near_gpsalt_max_diff",

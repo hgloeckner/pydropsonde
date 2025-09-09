@@ -1023,7 +1023,7 @@ class Sonde:
         Returns:
             self: A sonde object with the updated `interim_l3_ds` attribute.
         """
-        self.interim_l3_ds = self.l2_ds.sortby("time")
+        self.interim_l3_ds = self.l2_ds.sortby("time").reset_coords()
 
         return self
 
@@ -1072,12 +1072,14 @@ class Sonde:
         """
         remove measured values above aircraft
         """
+
         variables = ["lat", "lon", self.alt_dim, "u", "v"]
         maxalt = self.flight_attrs.get("aircraft_msl_altitude_(m)", float(max_alt))
         self.interim_l3_ds = hx.remove_above_alt(
             self.interim_l3_ds, variables, alt_dim=self.alt_dim, maxalt=maxalt
         )
 
+        assert np.all(~np.isnan(self.interim_l3_ds[self.alt_dim].values))
         return self
 
     def remove_unphysical(self):
@@ -1098,6 +1100,8 @@ class Sonde:
                     }
                 )
         self.interim_l3_ds = ds
+
+        assert np.all(~np.isnan(self.interim_l3_ds[self.alt_dim].values))
         return self
 
     def add_q_and_theta_to_l2_ds(self):
@@ -1270,7 +1274,11 @@ class Sonde:
             self.qc.qc_flags.update({"altitude_source": self.alt_dim})
         if hh.get_bool(interpolate):
             ds = ds.assign(
-                {"altitude": ds["altitude"].sortby("time").interpolate_na(dim="time")}
+                {
+                    "altitude": ds["altitude"]
+                    .sortby("time")
+                    .interpolate_na(dim="time", fill_value="extrapolate")
+                }
             )
         alt_attrs["long_name"] = "altitude"
         alt_attrs["description"] = (
@@ -1280,10 +1288,10 @@ class Sonde:
         self.alt_dim = "altitude"
         self.qc.alt_dim = "altitude"
         self.interim_l3_ds = self.qc.add_alt_source_to_ds(ds)
-
+        assert np.all(~np.isnan(ds[self.alt_dim].values))
         return self
 
-    def swap_alt_dimension(self):
+    def swap_alt_dimension(self, dropna=True):
         """
         Swap the 'time' dimension with an alternative dimension (either alt or gpsalt) in the dataset.
 
@@ -1296,7 +1304,11 @@ class Sonde:
             self: The instance of the object with the updated dataset.
         """
         alt_dim = self.alt_dim
-        self.interim_l3_ds = self.interim_l3_ds.swap_dims({"time": alt_dim})
+        ds = self.interim_l3_ds
+        ds = ds.swap_dims({"time": alt_dim})
+        if dropna:
+            ds = ds.where(~np.isnan(ds[alt_dim]), drop=True)
+        self.interim_l3_ds = ds
 
         return self
 
@@ -1353,7 +1365,7 @@ class Sonde:
         max_gap_fill: int = 50,
         interpolate=False,
         p_log=True,
-        method: str = "bin",
+        method: str = "linear_interpolate",
     ):
         """
         Interpolate sonde data along comon altitude grid to prepare concatenation
@@ -1361,11 +1373,58 @@ class Sonde:
         alt_dim = self.alt_dim
         interpolation_grid = np.arange(interp_start, interp_stop, interp_step)
         ds = self.interim_l3_ds
-
         if p_log:
             ds = ds.assign(p=(ds.p.dims, np.log(ds.p.values), ds.p.attrs))
         if method == "linear_interpolate":
-            interp_ds = ds.interp({alt_dim: interpolation_grid})
+            intgrid = (interpolation_grid + (interp_step / 2))[:-1]
+            ds = (
+                ds.swap_dims({alt_dim: "time"})
+                .sortby("time")
+                .dropna(dim="time", how="all", subset=[alt_dim])
+                .swap_dims({"time": alt_dim})
+                .sortby(alt_dim)
+                .interpolate_na(dim=alt_dim, fill_value="extrapolate")
+            )
+            if ds.sizes[alt_dim] < 2:
+                print(
+                    f"Not enough values to interpolate for {ds.vaisala_serial_id.values} at {ds.launch_time}"
+                )
+                return None
+            ds = ds.assign(
+                time=(
+                    ds.time.dims,
+                    ds.time.astype("float").where(~np.isnan(ds.time)).values,
+                    ds.time.attrs,
+                )
+            )
+            interp_ds = ds.interp(
+                {alt_dim: intgrid},
+                method="linear",
+                kwargs={"fill_value": "extrapolate"},
+            )
+            # mask out values that are outside of 10m bin of an original value
+            dsbinned = (
+                self.interim_l3_ds[
+                    [var for var in ds.variables if (np.issubdtype(ds[var], np.number))]
+                ]
+                .groupby_bins(alt_dim, bins=interpolation_grid, labels=intgrid)
+                .count()
+                .rename({f"{alt_dim}_bins": alt_dim})
+            )
+            interp_ds = interp_ds.assign(
+                {
+                    var: interp_ds[var].where(dsbinned[var] > 0)
+                    for var in dsbinned.variables
+                    if (alt_dim in interp_ds[var].dims) & (var != alt_dim)
+                }
+            )
+            interp_ds = interp_ds.assign(
+                interpolated_time=(
+                    interp_ds.time.dims,
+                    interp_ds.time.astype(self.interim_l3_ds.time.dtype).values,
+                    self.interim_l3_ds.time.attrs,
+                )
+            ).drop("time")
         elif method == "bin":
             mean_ds = {}
             count_dict = {}
