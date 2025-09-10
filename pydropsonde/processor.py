@@ -498,9 +498,7 @@ class Sonde:
         """
         self.qc.set_qc_ds(self.interim_l2_ds)
 
-        aircraft_alt = self.flight_attrs.get(
-            "aircraft_msl_altitude_(m)", float(max_alt)
-        )
+        aircraft_alt = self.flight_attrs.get("launch_altitude_(m)", float(max_alt))
         self.qc.alt_below_aircraft(aircraft_alt)
 
         return self
@@ -1074,7 +1072,7 @@ class Sonde:
         """
 
         variables = ["lat", "lon", self.alt_dim, "u", "v"]
-        maxalt = self.flight_attrs.get("aircraft_msl_altitude_(m)", float(max_alt))
+        maxalt = self.flight_attrs.get("launch_altitude_(m)", float(max_alt))
         self.interim_l3_ds = hx.remove_above_alt(
             self.interim_l3_ds, variables, alt_dim=self.alt_dim, maxalt=maxalt
         )
