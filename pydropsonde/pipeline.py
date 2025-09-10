@@ -651,7 +651,7 @@ pipeline = {
             "drop_vars",
             "interpolate_na_sondes",
             "extrapolate_na_sondes",
-            "recalculate_ta_rh",
+            "recalculate_q_ta",
         ],
         "output": "gridded",
         "comment": "prepare circle dataset for calculation",

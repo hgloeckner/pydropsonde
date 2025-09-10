@@ -324,10 +324,10 @@ class Circle:
 
         return self
 
-    def recalculate_ta_rh(self):
+    def recalculate_q_ta(self):
         ds = self.circle_ds
         ds = hh.calc_T_from_theta(ds)
-        ds = hh.calc_rh_from_q(ds)
+        ds = hh.calc_q_from_rh_sonde(ds)
         self.circle_ds = ds
         return self
 
