@@ -1279,7 +1279,7 @@ class Sonde:
         self.interim_l3_ds = self.qc.add_alt_source_to_ds(ds)
         return self
 
-    def swap_alt_dimension(self, dropna=True):
+    def swap_alt_dimension(self, dropna=False):
         """
         Swap the 'time' dimension with an alternative dimension (either alt or gpsalt) in the dataset.
 
