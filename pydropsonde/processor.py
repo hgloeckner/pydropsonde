@@ -1144,7 +1144,7 @@ class Sonde:
         self.interim_l3_ds = ds
         return self
 
-    def add_iwv(self):
+    def add_iwv(self, qc_var="default"):
         """
         Calculates interpolated water vapor from the interim l3 dataset.
 
@@ -1157,9 +1157,11 @@ class Sonde:
         self : object
             Returns the sonde object with integrated water vapour added to the interim l3 dataset.
         """
+        if qc_var == "default":
+            qc_var = ["rh_qc", "ta_qc", "p_qc"]
         self.interim_l3_ds = hh.calc_iwv(
             self.interim_l3_ds,
-            qc_var=["rh_qc", "ta_qc", "p_qc"],
+            qc_var=qc_var,
             alt_dim=self.alt_dim,
             sonde_dim=self.sonde_dim,
         )
