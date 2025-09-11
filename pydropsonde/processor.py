@@ -1328,9 +1328,13 @@ class Sonde:
         """
         This function removes the indices in the some height variable that are not monotonically increasing
         """
-        alt_dim = self.alt_dim
-
         ds = self.interim_l3_ds
+        alt_dim = self.alt_dim
+        if "ascent_flag" in ds.variables:
+            ascent = bool(ds.ascent_flag.values)
+        else:
+            ascent = False
+        ds = ds.sortby("time", ascending=not ascent)
 
         diff_array = ds[alt_dim].sortby("time").dropna(dim="time").diff(dim="time")
         if not np.all(diff_array <= 0):
@@ -1338,10 +1342,15 @@ class Sonde:
                 f"your altitude for {self} on {self.launch_time} is not sorted."
             )
             if bottom_up:
-                alt = ds[alt_dim].sortby("time", ascending=False).values
+                # sort by altitude
+                alt = ds[alt_dim].sortby("time", ascending=ascent).values
+
                 idx = (
-                    diff_array.sortby("time", ascending=False)
-                    .where(diff_array > 0)
+                    xr.where(
+                        diff_array.sortby("time", ascending=ascent) < 0,
+                        1,
+                        0,
+                    )
                     .argmin(dim="time")
                     .values
                 )
