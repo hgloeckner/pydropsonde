@@ -1200,6 +1200,23 @@ class Sonde:
         self.interim_l3_ds = hh.calc_wind_dir_and_speed(self.interim_l3_ds)
         return self
 
+    def add_wind_components(self):
+        """
+        Calculates wind components from the interim l3 dataset
+        and adds it to the interim l3 dataset
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        self : object
+            Returns the sonde object with wind components added to the interim l3 dataset.
+        """
+        self.interim_l3_ds = hh.calc_wind_components(self.interim_l3_ds)
+        return self
+
     def set_alt_dim(self, alt_dim="alt"):
         """
         Set the altitude dimension attribute for the sonde

@@ -528,3 +528,37 @@ def calc_wind_dir_and_speed(ds):
         )
     )
     return ds
+
+
+def calc_wind_components(ds):
+    """
+    Input :
+
+        dataset : Dataset
+
+    Output :
+
+        dataset: Dataset with u and v added
+
+    Function to estimate u and v from wind speed and wind direction in the given dataset.
+    """
+
+    u = -ds.wspd.values * np.sin(np.deg2rad(ds.wdir.values))
+    v = -ds.wspd.values * np.cos(np.deg2rad(ds.wdir.values))
+
+    u_attrs = dict(
+        standard_name="eastward_wind",
+        long_name="u component of winds",
+        units="m s-1",
+    )
+    u_attrs.update(dict(method="calculated from measured wind speed and direction"))
+
+    v_attrs = dict(
+        standard_name="northward_wind",
+        long_name="v component of winds",
+        units="m s-1",
+    )
+    v_attrs.update(dict(method="calculated from measured wind speed and direction"))
+    ds = ds.assign(v=(ds.wspd.dims, v, v_attrs), u=(ds.wspd.dims, u, u_attrs))
+
+    return ds
