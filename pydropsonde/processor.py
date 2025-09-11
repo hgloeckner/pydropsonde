@@ -989,7 +989,7 @@ class Sonde:
         )
         return self
 
-    def add_l2_ds(self, l2_dir: str = None):
+    def add_l2_ds(self, l2_dir: str = None, l2_ds=None):
         """
         Adds the L2 dataset as an attribute to the sonde object.
 
@@ -1003,7 +1003,10 @@ class Sonde:
         self : object
             Returns the sonde object with the L2 dataset added as an attribute.
         """
-        if l2_dir is None:
+        if l2_ds is not None:
+            self.set_l2_ds(l2_ds)
+            return self
+        elif l2_dir is None:
             l2_dir = self.l2_dir
 
         try:
@@ -1230,14 +1233,16 @@ class Sonde:
         alt_dim = self.alt_dim
         ds = self.interim_l3_ds
         alt_attrs = ds[alt_dim].attrs
-        if (not self.qc.qc_flags["p_sfc_physics"]) and (np.all(np.isnan(ds["gpsalt"]))):
+        if not self.qc.qc_flags.get("p_sfc_physics") and (
+            np.all(np.isnan(ds["gpsalt"]))
+        ):
             print(
                 f"No gpsalt values and no reliable alt values. {self} from {self.flight_id} is dropped"
             )
             return None
         elif alt_dim == "alt":
             self.qc.qc_flags.update({"altitude_source": "alt"})
-            if not self.qc.qc_flags["p_sfc_physics"]:
+            if not self.qc.qc_flags.get("p_sfc_physics", False):
                 for var in ["rh", "ta", "p"]:
                     self.qc.qc_flags[f"{var}_near_surface"] = False
                     self.qc.qc_details[f"{var}_near_surface_count"] = np.nan
@@ -1250,17 +1255,17 @@ class Sonde:
             self.qc.qc_flags.update({"altitude_source": "gpsalt"})
             if (
                 (
-                    (not self.qc.qc_flags["u_near_surface"])
-                    and (self.qc.qc_flags["p_near_surface"])
+                    (not self.qc.qc_flags.get("u_near_surface", False))
+                    and (self.qc.qc_flags.get("p_near_surface", False))
                 )
                 or (
-                    (not self.qc.qc_flags["u_profile_extent"])
-                    and (self.qc.qc_flags["p_profile_extent"])
+                    (not self.qc.qc_flags.get("u_profile_extent", False))
+                    and (self.qc.qc_flags.get("p_profile_extent", False))
                 )
-            ) and (self.qc.qc_flags["p_sfc_physics"]):
+            ) and (self.qc.qc_flags.get("p_sfc_physics", False)):
                 ds = ds.assign({alt_dim: ds["alt"]})
                 self.qc.qc_flags.update({"altitude_source": "alt"})
-            elif not self.qc.qc_flags["p_sfc_physics"]:
+            elif not self.qc.qc_flags.get("p_sfc_physics", False):
                 for var in ["rh", "ta", "p"]:
                     self.qc.qc_flags[f"{var}_near_surface"] = False
                     self.qc.qc_details[f"{var}_near_surface_count"] = np.nan
@@ -1665,9 +1670,9 @@ class Sonde:
 
         sonde_attrs = source_ds.sonde_id.attrs
 
-        if self.global_attrs["l3"].get("featureType") == "trajectoryProfile":
+        if self.global_attrs.get("l3", {}).get("featureType") == "trajectoryProfile":
             sonde_attrs.update(cf_role="trajectory_id")
-        elif self.global_attrs["l3"].get("featureType") == "profile":
+        elif self.global_attrs.get("l3", {}).get("featureType") == "profile":
             sonde_attrs.update(cf_role="profile_id")
 
         self.interim_l3_ds = ds.assign(
@@ -1808,15 +1813,15 @@ class Sonde:
         ds = self.interim_l3_ds
         ds.attrs = {}
         ds.attrs.update(
-            self.global_attrs["global"],
+            self.global_attrs.get("global", {}),
         )
         ds.attrs.update(
-            self.global_attrs["l3"],
+            self.global_attrs.get("l3", {}),
         )
         ds.attrs.update(
             dict(
                 history=self.history,
-                title=self.global_attrs["l3"].get(
+                title=self.global_attrs.get("l3", {}).get(
                     "title",
                     self.global_attrs.get("title", "Dropsonde Data") + " Level 3",
                 ),
