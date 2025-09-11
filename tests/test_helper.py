@@ -1,6 +1,7 @@
 import pydropsonde.helper as hh
 import numpy as np
 import xarray as xr
+import pytest
 
 p = np.linspace(100000, 10000, 10)
 T = np.linspace(300, 200, 10)
@@ -80,3 +81,27 @@ def test_time_encoding_nan():
         np.datetime_as_string(np.datetime64("1970-01-01T00:00:00"), "s")
         in time_encoding["units"]
     )
+
+
+@pytest.mark.parametrize(
+    "u,v",
+    [
+        (np.linspace(5, 15, 10), np.linspace(-5, -15, 10)),
+        (np.linspace(-10, 10, 10), np.linspace(-10, 10, 10)),
+        (np.linspace(-5, -15, 10), np.linspace(5, 15, 10)),
+    ],
+)
+def test_wind(u, v):
+    ds_wind = xr.Dataset(
+        data_vars=dict(
+            u=(["alt"], u, {"units": "m/s"}),
+            v=(["alt"], v, {"units": "m/s"}),
+        ),
+        coords=dict(
+            alt=("alt", alt),
+        ),
+    )
+    ds = hh.calc_wind_dir_and_speed(ds_wind)
+    ds = hh.calc_wind_components(ds)
+    assert np.all(np.round(ds_wind.u.values, 3) == np.round(ds.u.values, 3))
+    assert np.all(np.round(ds_wind.v.values, 3) == np.round(ds.v.values, 3))
