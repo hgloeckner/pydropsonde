@@ -1323,53 +1323,46 @@ class Sonde:
 
         return self
 
-    def remove_non_mono_incr_alt(self, bottom_up=True):
+    def remove_non_mono_incr_alt(self, bottom_up=True, tried=False):
         """
         This function removes the indices in the some height variable that are not monotonically increasing
         """
+        ds = self.interim_l3_ds
         alt_dim = self.alt_dim
+        if "ascent_flag" in ds.variables:
+            ascent = bool(ds.ascent_flag.values)
+        else:
+            ascent = False
+        bu_sign = np.sign(int(bottom_up) - 0.5)
+        ds = ds.sortby("time", ascending=not (bottom_up ^ ascent))
+        alt = ds[alt_dim].values
+        diff = ds[alt_dim].diff(dim="time")
+        idx = xr.where(bu_sign * diff <= 0, 0, 1).argmin(dim="time").values
+        curr_alt = ds[alt_dim].values[idx]
+        idx += 1
 
-        ds = self.interim_l3_ds.sortby("time")
-
-        diff_array = ds[alt_dim].dropna(dim="time").diff(dim="time")
-        if not np.all(diff_array <= 0):
-            warnings.warn(
-                f"your altitude for {self} on {self.launch_time} is not sorted."
-            )
-            if bottom_up:
-                # sort by altitude
-                alt = ds[alt_dim].sortby("time", ascending=False).values
-
-                idx = (
-                    xr.where(
-                        diff_array.sortby("time", ascending=False) < 0,
-                        1,
-                        0,
-                    )
-                    .argmin(dim="time")
-                    .values
-                ) - 1
+        while idx < ds.sizes["time"]:
+            if bu_sign * (ds[alt_dim].values[idx] - curr_alt) > 0:
                 curr_alt = alt[idx]
-                idx = idx + 1
-                while idx < ds.sizes["time"]:
-                    if not alt[idx] > curr_alt:
-                        alt[idx] = np.nan
-                    elif ~np.isnan(alt[idx]):
-                        curr_alt = alt[idx]
-                    idx += 1
 
-                ds = ds.assign({alt_dim: ("time", alt[::-1], ds[alt_dim].attrs)})
-                assert (ds[alt_dim].diff(dim="time").dropna(dim="time") < 0).all()
             else:
-                alt = ds[alt_dim]
-                curr_alt = alt.isel(time=0)
-                for i in range(len(alt)):
-                    if alt[i] > curr_alt:
-                        alt[i] = np.nan
-                    elif ~np.isnan(alt[i]):
-                        curr_alt = alt[i]
-                ds[alt_dim] = alt
+                alt[idx] = np.nan
+            idx += 1
+        if (np.count_nonzero(alt[~np.isnan(alt)]) < 3) and (not tried):
+            print(
+                f"Using bottom up {bottom_up} did not work for {self} from {self.launch_time}. Trying the other way around"
+            )
+            self = self.remove_non_mono_incr_alt(bottom_up=(not bottom_up), tried=True)
+            return self
 
+        if (np.count_nonzero(alt[~np.isnan(alt)]) < 3) and tried:
+            print(f"All values are non-monotonic in {self} from {self.launch_time}")
+            return None
+
+        ds = ds.assign({alt_dim: (ds[alt_dim].dims, alt, ds[alt_dim].attrs)})
+        assert np.all(ds[alt_dim].dropna("time").diff(dim="time") > 0) or np.all(
+            ds[alt_dim].dropna("time").diff(dim="time") < 0
+        )
         self.interim_l3_ds = ds
         return self
 
@@ -1418,7 +1411,7 @@ class Sonde:
             )
             if ds.sizes[alt_dim] < 2:
                 print(
-                    f"Not enough values to interpolate for {ds.vaisala_serial_id.values} at {ds.launch_time}"
+                    f"Not enough values to interpolate for {ds.vaisala_serial_id.values} at {ds.launch_time.values}"
                 )
                 return None
             ds = ds.assign(
@@ -1433,6 +1426,7 @@ class Sonde:
                 method="linear",
                 kwargs={"fill_value": "extrapolate"},
             )
+
             # mask out values that are outside of 10m bin of an original value
             dsbinned = (
                 self.interim_l3_ds[
