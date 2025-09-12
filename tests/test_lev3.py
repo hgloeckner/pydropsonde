@@ -258,3 +258,122 @@ class TestGroup:
             > np.timedelta64(1, "h")
         )
         assert not np.any(np.abs(result_ds.q - new_sonde.interim_l3_ds.q) > 1e-3)
+
+
+@pytest.mark.parametrize(
+    "test_input,expected",
+    [
+        (
+            {
+                "time": np.arange(0, 5),
+                "alt": [10, 9, 8, 9, 7],
+            },
+            {
+                "bottom_up": [7, 9, np.nan, np.nan, 10],
+                "top_down": [10, 9, 8, np.nan, 7],
+            },
+        ),
+        (
+            {
+                "time": np.arange(0, 5),
+                "alt": [10, 10, 9, 7, 7],
+            },
+            {
+                "bottom_up": [7, np.nan, 9, 10, np.nan],
+                "top_down": [10, np.nan, 9, 7, np.nan],
+            },
+        ),
+        (
+            {
+                "time": np.arange(0, 5),
+                "alt": [4, 7, 6, 5, 4],
+                "repeat": "top_down",
+                "ascent_skip": True,
+            },
+            {
+                "bottom_up": [4, 5, 6, 7, np.nan],
+                "top_down": np.nan,
+            },
+        ),
+        (
+            {
+                "time": np.arange(0, 5),
+                "alt": [10, 7, 6, 5, 10],
+                "repeat": "bottom_up",
+                "ascent_skip": True,
+            },
+            {
+                "bottom_up": np.nan,
+                "top_down": [10, 7, 6, 5, np.nan],
+            },
+        ),
+    ],
+)
+class TestGroup2:
+    @pytest.fixture(autouse=True)
+    def sonde(self):
+        sonde = Sonde(_serial_id=s_id, _launch_time=launch_time)
+        sonde.add_flight_id(flight_id)
+        sonde.add_platform_id(platform_id)
+        sonde.set_alt_dim("alt")
+        self.sonde = sonde
+
+    def test_remove_alt(self, test_input, expected):
+        input_dict = {
+            "coords": {"time": {"dims": ("time"), "data": test_input["time"]}},
+            "data_vars": {
+                "alt": {
+                    "dims": ("time"),
+                    "data": np.array(test_input["alt"]).astype(float),
+                },
+            },
+        }
+
+        ds = xr.Dataset.from_dict(input_dict).assign(
+            ascent_flag=False,
+        )
+
+        def test_combination(ascent_flag, bottom_up, expected_alt):
+            print("bottom up", bottom_up, "ascent", ascent_flag)
+            self.sonde.interim_l3_ds = ds
+            self.sonde.remove_non_mono_incr_alt(bottom_up=bottom_up)
+
+            assert not np.any(
+                np.abs(
+                    self.sonde.interim_l3_ds["alt"].values
+                    - np.array(expected_alt).astype(float)
+                )
+                > 1e-6
+            )
+
+        exp_bu = expected["bottom_up"]
+        exp_td = expected["top_down"]
+
+        if test_input.get("repeat", None) == "bottom_up":
+            exp_bu = expected["top_down"]
+        elif test_input.get("repeat", None) == "top_down":
+            exp_td = expected["bottom_up"]
+
+        test_combination(ascent_flag=False, bottom_up=True, expected_alt=exp_bu)
+        test_combination(ascent_flag=False, bottom_up=False, expected_alt=exp_td)
+
+        ds = ds.assign(
+            ascent_flag=True,
+        )
+        assert ds["ascent_flag"].values
+        if not test_input.get("ascent_skip", False):
+            ds = ds.assign(
+                alt=("time", ds.alt.values[::-1]),
+            )
+            assert np.all(ds["alt"].values - test_input["alt"][::-1] == 0)
+            assert np.any(ds["alt"].values - test_input["alt"] != 0)
+            test_combination(ascent_flag=True, bottom_up=True, expected_alt=exp_bu)
+            test_combination(ascent_flag=True, bottom_up=False, expected_alt=exp_td)
+        else:
+            self.sonde.interim_l3_ds = ds
+            print("bottom_up", True, "ascent", True)
+            res = self.sonde.remove_non_mono_incr_alt(bottom_up=True)
+            assert res is None
+            print("bottom_up", False, "ascent", True)
+            res = self.sonde.remove_non_mono_incr_alt(bottom_up=False)
+            assert res is None
